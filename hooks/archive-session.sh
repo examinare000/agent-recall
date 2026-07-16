@@ -9,7 +9,7 @@
 # - jq があれば使い、無ければ python3 にフォールバック。
 set -u
 
-# plugin配布時の利用者設定（CORPUS_DIR・RECALL_DIR 等の上書き）を
+# plugin配布時の利用者設定（RECALL_CORPUS_DIR・RECALL_DIR 等の上書き）を
 # ~/.claude/agent-recall/config.env に置けるようにし、存在すれば読み込む
 # （plugin cache の外に置くことで plugin 更新でも消えない）。壊れていても
 # フックを失敗させない（フックは絶対に失敗してセッションを妨げない方針を踏襲）。
@@ -22,8 +22,10 @@ if [ -f "$CONFIG_ENV" ]; then
 fi
 
 # 標準パス規約。カスタマイズが必要な場合、環境変数で上書き可能。
-CORPUS="${CORPUS_DIR:-$HOME/.claude/corpus}/claude-code"
-LOG="${CORPUS_DIR:-$HOME/.claude/corpus}/.archive.log"
+# 正規名は RECALL_CORPUS_DIR（recall/config.py・check-setup.sh・commands/setup.md と統一）。
+# 旧 CORPUS_DIR は非推奨フォールバックとして残す（既存 config.env との後方互換のため）。
+CORPUS="${RECALL_CORPUS_DIR:-${CORPUS_DIR:-$HOME/.claude/corpus}}/claude-code"
+LOG="${RECALL_CORPUS_DIR:-${CORPUS_DIR:-$HOME/.claude/corpus}}/.archive.log"
 
 # --- stdin の JSON から値を取り出す ---
 payload="$(cat 2>/dev/null || true)"
@@ -65,8 +67,10 @@ printf '%s\tarchived\t%s\t%s\n' "$ts" "$proj" "$(basename "$transcript")" >> "$L
 # pgrep ガード: 近接する複数セッション終了で index が多重起動すると単一 sqlite への
 # 書き込みが競合し得るため、既に走っていればスキップする（次回終了時に再試行される。
 # ガードをすり抜けても失敗は無害で、索引はインクリメンタルに自己回復する）。
-# recall リポジトリのパス。デフォルトはホーム配下の .local/share/claude/recall を想定。
-RECALL_REPO="${RECALL_DIR:-$HOME/.local/share/claude/recall}"
+# recall リポジトリのパス。解決順: RECALL_DIR(明示上書き) > CLAUDE_PLUGIN_ROOT
+# (プラグイン専用導入時にClaude Codeが自動設定するプラグイン本体のルート) > 既定の
+# ホーム配下 .local/share/claude/recall（手動clone運用を想定した既定値）。
+RECALL_REPO="${RECALL_DIR:-${CLAUDE_PLUGIN_ROOT:-$HOME/.local/share/claude/recall}}"
 if command -v uv >/dev/null 2>&1 && [ -d "$RECALL_REPO" ] && ! pgrep -f "recall index" >/dev/null 2>&1; then
   nohup uv run --directory "$RECALL_REPO" recall index \
     >/dev/null 2>&1 &
