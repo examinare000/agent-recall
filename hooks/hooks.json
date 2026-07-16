@@ -1,0 +1,26 @@
+{
+  "description": "agent-recall: セッションアーカイブとセットアップ状態通知のフック",
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/archive-session.sh\""
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/check-setup.sh\""
+          }
+        ],
+        "matcher": "startup"
+      }
+    ]
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "recall": {
+    "command": "${CLAUDE_PLUGIN_ROOT}/bin/recall-serve.sh"
+  }
+}
