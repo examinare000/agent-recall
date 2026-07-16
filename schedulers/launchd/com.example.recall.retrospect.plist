@@ -46,8 +46,11 @@
     <string>"${HOME}/.local/share/claude/recall/schedulers/launchd/run-retrospect.sh"</string>
   </array>
   <!-- 導入時: ラベル (Label) と パス (ProgramArguments) を自分の環境に合わせて sed で置換してください。
+       ${HOME} トークンは ProgramArguments だけでなく StandardOutPath/StandardErrorPath
+       （別サフィックスで登場する）にも使われているため、プレフィックス部分文字列単位ではなく
+       トークン全体を置換すること（launchd は plist 文字列内のシェル変数を展開しない）。
        例: sed -e 's/com.example.recall.retrospect/com.myname.recall.retrospect/g' \
-               -e 's|${HOME}/.local/share/claude/recall|'"$HOME"'/.local/share/claude/recall|g' \
+               -e 's|${HOME}|'"$HOME"'|g' \
                com.example.recall.retrospect.plist > ~/Library/LaunchAgents/com.myname.recall.retrospect.plist
   -->
   <key>StartCalendarInterval</key>

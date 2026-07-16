@@ -101,13 +101,17 @@ ln -s <recall-clone-dir>/agents/retrospective-analyst.md ~/.claude/agents/
 
 ```bash
 # recall リポジトリのパスに置換（下記の例は参考）
+# 注意: launchd は plist 文字列内のシェル変数を展開しないため、`${HOME}` トークンは
+# ProgramArguments だけでなく StandardOutPath/StandardErrorPath（別サフィックスで
+# 登場する）も含めて丸ごと置換する。プレフィックス部分文字列だけを狙う置換だと
+# 後者が置換されずリテラルの壊れたパスとして残るので避けること。
 sed -e 's/com.example.recall/com.myname.recall/g' \
-    -e 's|\${HOME}/.local/share/claude/recall|'"$HOME"'/.local/share/claude/recall|g' \
+    -e 's|\${HOME}|'"$HOME"'|g' \
     <recall-clone-dir>/schedulers/launchd/com.example.recall.retrospect.plist \
   > ~/Library/LaunchAgents/com.myname.recall.retrospect.plist
 
 sed -e 's/com.example.recall/com.myname.recall/g' \
-    -e 's|\${HOME}/.local/share/claude/recall|'"$HOME"'/.local/share/claude/recall|g' \
+    -e 's|\${HOME}|'"$HOME"'|g' \
     <recall-clone-dir>/schedulers/launchd/com.example.recall.weekly-distill.plist \
   > ~/Library/LaunchAgents/com.myname.recall.weekly-distill.plist
 
