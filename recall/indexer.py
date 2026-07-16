@@ -5,6 +5,7 @@ chunker(純粋)・store(境界)・embedder(境界) はそれぞれ単体テス�
 """
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -31,6 +32,15 @@ def index_corpus(
       （モデルを跨いでベクトル空間が混在するのを防ぐため）。
     - full=True (--all) は状態を無視して全ファイルを再チャンク・再埋め込みする。
     """
+    if not corpus_dir.exists():
+        # 初回セットアップ等、~/.claude/corpus/claude-code がまだ作成されていない場合の
+        # 正常系。索引対象0件として完了させつつ(exit 0)、原因に気づけるよう警告のみ出す。
+        print(
+            f"[recall] 警告: CORPUS_DIR が存在しません: {corpus_dir}"
+            " (初回セットアップ時はセッションが記録されるまで正常です)",
+            file=sys.stderr,
+        )
+
     stored_model = store.get_meta("model")
     if stored_model is not None and stored_model != embedder.model_name:
         full = True

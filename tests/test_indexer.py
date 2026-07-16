@@ -157,6 +157,23 @@ class TestIncremental:
         assert store.get_file_state("proj/b.jsonl") is None
 
 
+class TestMissingCorpusDir:
+    def test_warns_to_stderr_when_corpus_dir_does_not_exist(self, tmp_path, store, capsys) -> None:
+        """初回セットアップ等で CORPUS_DIR (~/.claude/corpus/claude-code) がまだ
+        存在しない場合でも `recall index` は異常終了させず(exit 0)、原因に気づける
+        よう stderr に警告を出す。索引対象0件として正常に完了することも合わせて確認する。
+        """
+        missing_dir = tmp_path / "not-yet-created"
+        embedder = FakeEmbedder()
+
+        stats = index_corpus(missing_dir, store, embedder)
+
+        captured = capsys.readouterr()
+        assert str(missing_dir) in captured.err
+        assert stats.indexed_files == 0
+        assert stats.errors == 0
+
+
 class TestRawTextNonLeak:
     def test_no_raw_secret_reaches_store_text_column(self, tmp_path, store):
         proj_dir = tmp_path / "proj"
