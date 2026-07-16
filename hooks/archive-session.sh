@@ -9,6 +9,18 @@
 # - jq があれば使い、無ければ python3 にフォールバック。
 set -u
 
+# plugin配布時の利用者設定（CORPUS_DIR・RECALL_DIR 等の上書き）を
+# ~/.claude/agent-recall/config.env に置けるようにし、存在すれば読み込む
+# （plugin cache の外に置くことで plugin 更新でも消えない）。壊れていても
+# フックを失敗させない（フックは絶対に失敗してセッションを妨げない方針を踏襲）。
+CONFIG_ENV="$HOME/.claude/agent-recall/config.env"
+if [ -f "$CONFIG_ENV" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$CONFIG_ENV" 2>/dev/null || true
+  set +a
+fi
+
 # 標準パス規約。カスタマイズが必要な場合、環境変数で上書き可能。
 CORPUS="${CORPUS_DIR:-$HOME/.claude/corpus}/claude-code"
 LOG="${CORPUS_DIR:-$HOME/.claude/corpus}/.archive.log"
