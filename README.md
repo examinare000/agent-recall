@@ -25,11 +25,12 @@ recall/
   ├── tests/                # ユニットテスト
   ├── distill/
   │   ├── extract.py        # 人間の発話ダイジェスト抽出
-  │   ├── SKILL.md          # 蒸留手順（半手動）
   │   └── weekly-distill.sh # 週次ダイジェスト生成スクリプト
   ├── hooks/
   │   └── archive-session.sh # SessionEnd フック（コーパス自動アーカイブ）
   ├── skills/
+  │   ├── distill/
+  │   │   └── SKILL.md      # 蒸留手順（半手動）
   │   └── retrospect/
   │       └── SKILL.md      # 振り返り・教訓昇格の手続き（8ステップ）
   ├── agents/
@@ -153,7 +154,7 @@ python3 extract.py
 ダイジェストから嗜好パターンを抽出し、memory 化する半手動手順:
 
 ```bash
-distill/SKILL.md を参照して実行
+skills/distill/SKILL.md を参照して実行
 ```
 
 ### retrospect スキル
