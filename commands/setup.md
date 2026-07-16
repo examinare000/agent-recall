@@ -57,10 +57,12 @@ allowed-tools: AskUserQuestion, Bash, Read, Write, Edit, Glob
    ```bash
    claude mcp list
    ```
-   出力中に、プラグイン同梱の `recall`（キー名がプラグイン修飾された `mcp__plugin_agent-recall_recall__*` 側）
-   ではなく、**user-scope で単体登録された `recall`**（ツール名は `mcp__recall__*` になる、別プロセス）
-   が見つかった場合:
-   - ツール名の接頭辞が異なるため両者は**衝突せず共存できる**が、recall MCP サーバ（uv run プロセス）が
+   出力には登録名だけでなく起動コマンドも表示されるため、これで判別する:
+   プラグイン版は `bin/recall-serve.sh` を起動コマンドとして持つのに対し、
+   **user-scope で単体登録された `recall`** は `uv run --directory <path> recall serve` を
+   起動コマンドとして持つ（登録名が両方とも `recall` になり得るため、名前だけでは判別できない）。
+   後者が見つかった場合:
+   - 起動コマンドが異なる＝別プロセスのため両者は**衝突せず共存できる**が、recall MCP サーバ（uv run プロセス）が
      二重起動になり無駄である旨を伝える。
    - `AskUserQuestion` で確認する:
      - question: "user-scope に登録済みの recall MCP が見つかりました。二重起動を避けるため削除しますか？"
