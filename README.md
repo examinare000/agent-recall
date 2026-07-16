@@ -45,14 +45,40 @@ recall/
 
 ## セットアップ
 
-### 1. インストール
+### インストール（プラグイン、推奨）
+
+1. マーケットプレイス登録（このリポジトリの clone 先パス、または GitHub URL を指定）:
+   ```bash
+   claude plugin marketplace add <このリポジトリの clone 先パス、または GitHub URL>
+   ```
+2. プラグインインストール:
+   ```bash
+   claude plugin install agent-recall@agent-recall
+   ```
+3. 次回セッション開始時、`SessionStart` フック（`hooks/check-setup.sh`）が未設定を検知し、
+   `/agent-recall:setup` の実行を促す `additionalContext` を表示する。
+4. `/agent-recall:setup` を実行し、対話（メモリ保持形式・蒸留方法・索引構築）に従ってセットアップする
+   （手順の詳細は `commands/setup.md` 参照）。plugin install はファイルコピーのみで
+   `uv sync`・ディレクトリ作成・launchd 登録は行わないため、これらは setup コマンドが担う。
+
+導入後に使えるようになる MCP ツール名は `mcp__plugin_agent-recall_recall__memory_search` /
+`mcp__plugin_agent-recall_recall__memory_get` 等（プラグイン修飾つき）。下記「プラグインを使わない場合」の
+user-scope 登録とはツール名の接頭辞が異なるため、両方登録しても**衝突はしない**。ただし recall MCP サーバ
+（`uv run recall serve`）が二重起動になり無駄なので、`/agent-recall:setup` は user-scope 側の
+`recall` 登録を検出すると `claude mcp remove recall` を提案する。
+
+### プラグインを使わない場合（手動導入）
+
+ツール名は `mcp__recall__memory_search` / `mcp__recall__memory_get` 等（プラグイン修飾なし）になる。
+
+#### 1. インストール
 
 ```bash
 cd <recall-clone-dir>
 uv sync
 ```
 
-### 2. MCP サーバの登録
+#### 2. MCP サーバの登録
 
 Claude Code の settings.json に以下を追加（またはプラグイン UI で登録）:
 
@@ -67,7 +93,7 @@ Claude Code の settings.json に以下を追加（またはプラグイン UI �
 }
 ```
 
-### 3. SessionEnd フック設定
+#### 3. SessionEnd フック設定
 
 `~/.claude/settings.json` に以下を追加:
 
@@ -84,7 +110,7 @@ Claude Code の settings.json に以下を追加（またはプラグイン UI �
 }
 ```
 
-### 4. Skills と Agents の配置
+#### 4. Skills と Agents の配置
 
 シンボリックリンクまたはコピーで `~/.claude/` 配下へ配置:
 
@@ -96,7 +122,7 @@ ln -s <recall-clone-dir>/skills/retrospect ~/.claude/skills/retrospect
 ln -s <recall-clone-dir>/agents/retrospective-analyst.md ~/.claude/agents/
 ```
 
-### 5. Launchd スケジューラの登録（オプション）
+#### 5. Launchd スケジューラの登録（オプション）
 
 週次 retrospect と distill を自動実行したい場合:
 
