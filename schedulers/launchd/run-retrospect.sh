@@ -46,7 +46,10 @@ RECALL_REPO="${RECALL_REPO:-$HOME/.local/share/claude/recall}"
 CORPUS_DIR="${CORPUS_DIR:-$HOME/.claude/corpus}"
 LESSONS_DIR="${LESSONS_DIR:-$HOME/.claude/lessons}"
 
-ALLOWED_TOOLS="Bash(git push:*),Bash(gh pr create:*),Bash(gh pr list:*),Bash(gh pr view:*),Bash(uv run --directory ${RECALL_REPO}:*),Bash(uv run --directory ${RECALL_REPO}:*),Bash(find ${CORPUS_DIR}:*),Bash(find ${CORPUS_DIR}:*),Bash(mv ${LESSONS_DIR}:*),Bash(mv ${LESSONS_DIR}:*)"
+# 各エントリは1回のみ列挙する。旧repoでは「~ 表記」と「絶対パス表記」の両方を
+# 許可リストに並べる設計だったため重複エントリが必要だったが、上記の変数化で
+# 実行時に解決済みの1パスのみが埋め込まれるようになり、その設計は不要になった。
+ALLOWED_TOOLS="Bash(git push:*),Bash(gh pr create:*),Bash(gh pr list:*),Bash(gh pr view:*),Bash(uv run --directory ${RECALL_REPO}:*),Bash(find ${CORPUS_DIR}:*),Bash(mv ${LESSONS_DIR}:*)"
 DISALLOWED_TOOLS="WebFetch,WebSearch,mcp__gemini__ask-gemini,mcp__gemini__brainstorm,mcp__gemini__fetch-chunk,mcp__gemini__ping,mcp__gemini__Help,mcp__vault__vault_search,mcp__vault__vault_get,mcp__shelf__consult,mcp__shelf__ask,mcp__shelf__list_notebooks"
 
 if ! cd "$REPO" 2>/dev/null; then
