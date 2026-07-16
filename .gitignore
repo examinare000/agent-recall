@@ -1,0 +1,37 @@
+# Python
+.venv/
+__pycache__/
+*.egg-info/
+*.pyc
+.ruff_cache/
+.pytest_cache/
+
+# Build & distribution
+dist/
+build/
+*.egg
+
+# State & indices
+.extract-state.json
+.index/
+
+# Index data & corpus (local only)
+*.pkl
+*.npy
+/index/
+
+# Logs
+.weekly.log
+.launchd*.log
+
+# System
+.DS_Store
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
