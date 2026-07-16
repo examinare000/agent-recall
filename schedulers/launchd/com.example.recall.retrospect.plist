@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  自己成長ループの週次振り返りジョブ（第2段階・雛形）。
+
+  有効化手順（/retrospect の手動運用で提案品質を確認してから）:
+    cp schedulers/launchd/com.example.recall.retrospect.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.example.recall.retrospect.plist
+
+  設計方針:
+  - 提案（PR）で必ず停止するため、無人実行でも rules/skills が勝手に変わることはない
+    （マージゲート = 人間承認。~/.claude/rules/94-self-improvement-protocol.md 参照）。
+  - memory カードの書き込みのみ自動適用（低リスク・可逆）。
+  - 毎週日曜 07:00 実行。ログは lessons/ 配下（gitignore 済み）。
+
+  無人実行の権限設計（2026-07-15 有効化。ユーザー承認済み。同日 権限最小化で更新）:
+  - git 書込み系（add/commit/checkout 等）は user settings.json の permissions.allow が既にカバー。
+  - 不足分のみ --allowedTools で明示追加: git push / gh pr create・list・view（提案PRの作成と
+    Step 5 の過去PR重複照合）/ uv run（recall ディレクトリ限定）/ find（corpus 限定）/
+    mv（lessons 限定）。パスは ~ と絶対パスの両表記を許可（prefix 一致のため）。
+  - grep（パス無制限）は --allowedTools から除去済み。retrospect SKILL側の類似照合は
+    権限不要のGrepツールへ移行済みのため不要になり、パス無制限grepはgit push /
+    gh pr create（外部送信）とacceptEditsの組み合わせで私有データ到達→送信の
+    経路になり得たため削除した。
+  - --disallowedTools で無人ジョブへの未信頼コンテンツ流入経路（WebFetch/WebSearch）と
+    Step本文で不要な私有MCP（gemini/vault/shelf）への到達を明示的に剥奪。
+    recall（mcp__recall__*）はStep 2のmemory_searchに必要なため維持。
+  - マージは skill 側で絶対禁止（人間承認ゲート）。保護ブランチ commit は hook がブロック。
+    --dangerously-skip-permissions は使わない。
+
+  スマホ通知（2026-07-15 追加）:
+  - claude起動コマンド本体は launchd/run-retrospect.sh へ移設した（allowedTools含め
+    従来と一字一句同じ内容）。plistのProgramArgumentsはこのラッパーを呼ぶだけにし、
+    完了/失敗をntfy.sh経由でスマホへ通知するロジックをシェルテストで検証可能にした。
+  - 通知はopt-in。notify.sh はこのリポジトリには同梱されないため、使う場合は
+    run-retrospect.sh 内のコメントを参照して各自配置すること。未配置でもジョブは従来通り動く。
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.example.recall.retrospect</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>"${HOME}/.local/share/claude/recall/schedulers/launchd/run-retrospect.sh"</string>
+  </array>
+  <!-- 導入時: ラベル (Label) と パス (ProgramArguments) を自分の環境に合わせて sed で置換してください。
+       例: sed -e 's/com.example.recall.retrospect/com.myname.recall.retrospect/g' \
+               -e 's|${HOME}/.local/share/claude/recall|'"$HOME"'/.local/share/claude/recall|g' \
+               com.example.recall.retrospect.plist > ~/Library/LaunchAgents/com.myname.recall.retrospect.plist
+  -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key>
+    <integer>0</integer>
+    <key>Hour</key>
+    <integer>7</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>${HOME}/.claude/lessons/.retrospect.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>${HOME}/.claude/lessons/.retrospect.err.log</string>
+</dict>
+</plist>

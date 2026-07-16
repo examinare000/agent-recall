@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.example.recall.weekly-distill</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>${HOME}/.local/share/claude/recall/distill/weekly-distill.sh</string>
+    </array>
+
+    <!-- 毎週月曜 09:00 に実行 -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>1</integer>
+        <key>Hour</key>
+        <integer>9</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>${HOME}/.local/share/claude/recall/distill/.launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>${HOME}/.local/share/claude/recall/distill/.launchd.err.log</string>
+
+    <!-- 導入時: ラベル (Label)、ProgramArguments、StandardOutPath、StandardErrorPath を
+         自分の環境に合わせて sed で置換してください。
+         例: sed -e 's/com.example.recall.weekly-distill/com.myname.recall.distill/g' \
+                 -e 's|\${HOME}/.local/share/claude/recall|'"$HOME"'/.local/share/claude/recall|g' \
+                 com.example.recall.weekly-distill.plist > ~/Library/LaunchAgents/com.myname.recall.distill.plist
+    -->
+
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>
