@@ -4,7 +4,7 @@ recall — session-archive semantic search MCP + lesson distillation pipeline fo
 
 # recall
 
-Session archive の意味検索 MCP と教訓蒸留パイプラインの統合ツール。Claude Code の自己改善ループ（agent-rules/94）を支える記憶・学習基盤です。
+Session archive の意味検索 MCP と教訓蒸留パイプラインの統合ツール。Claude Code の自己改善ループ（rule 94: self-improvement-protocol）を支える記憶・学習基盤です。
 
 ## 概要
 
@@ -172,9 +172,10 @@ cd <recall-clone-dir>
 uv run pytest
 ```
 
-## agent-rules/94 との関係
+## `~/.claude/rules/94-self-improvement-protocol.md` との関係
 
-recall は agent-rules/94「自己改善プロトコル」の実装基盤です：
+recall は自己改善プロトコル（`~/.claude/rules/94-self-improvement-protocol.md`。
+別頒布の agent-forge フレームワークの installer がこのパスに配置する）の実装基盤です：
 
 - **Step 1（記録）**: archive-session hook が session → corpus へ自動記録
 - **Step 2（蒸留）**: distill/extract.py + distill-preferences skill で発話 → inbox
@@ -190,5 +191,5 @@ MIT License - Copyright (c) 2026 Ryosuke Ikeda
 
 ## 参考
 
-- [agent-rules/94: 自己改善プロトコル](https://github.com/yourorg/agent-forge/blob/main/agent-rules/94-self-improvement-protocol.md)
+- `~/.claude/rules/94-self-improvement-protocol.md`: 自己改善プロトコル（agent-forge の installer が配置。上流ソースは [agent-forge リポジトリ](https://github.com/yourorg/agent-forge) 参照）
 - [claude-code CLAUDE.md: Memory 型と規約](https://github.com/anthropics/claude-code/docs/CLAUDE.md)
