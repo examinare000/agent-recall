@@ -1,0 +1,38 @@
+[project]
+name = "recall"
+version = "0.1.0"
+description = "corpus/claude-code/ を意味検索するための MCP サーバ（MVP）"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.0.0",
+    "fastembed>=0.4.0",
+    "numpy>=1.26",
+]
+
+[project.scripts]
+recall = "recall.cli:main"
+
+[dependency-groups]
+# uv は [dependency-groups] の "dev" グループを `uv sync`/`uv run` 実行時に
+# 既定で同期する（[project.optional-dependencies] の extra と違い --extra 指定不要）。
+# README/完了条件が `uv run pytest`（プレーン実行）を前提にしているため、この形式にする。
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["recall"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+# エディタ(Pyright)が recall/.venv を解決できるようにする（実行系は uv が解決）
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
