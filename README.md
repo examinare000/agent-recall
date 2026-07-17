@@ -1,4 +1,4 @@
-recall — session-archive semantic search MCP + lesson distillation pipeline for Claude Code. Pairs with the agent-forge framework (rule 94 self-improvement loop). Documentation is in Japanese.
+recall — session-archive semantic search MCP + lesson distillation pipeline for Claude Code. Pairs with the [agent-forge](https://github.com/examinare000/agent-forge) framework (rule 94 self-improvement loop). Documentation is in Japanese.
 
 ---
 
@@ -47,9 +47,14 @@ recall/
 
 ### インストール（プラグイン、推奨）
 
-1. マーケットプレイス登録（このリポジトリの clone 先パス、または GitHub URL を指定）:
+1. マーケットプレイス登録（GitHub から直指定、または ローカル clone パス）:
    ```bash
-   claude plugin marketplace add <このリポジトリの clone 先パス、または GitHub URL>
+   # GitHub 直指定（推奨）
+   claude plugin marketplace add examinare000/agent-recall
+   
+   # またはローカルクローン
+   git clone https://github.com/examinare000/agent-recall.git
+   claude plugin marketplace add <クローン先パス>
    ```
 2. プラグインインストール:
    ```bash
@@ -191,10 +196,10 @@ skills/distill/SKILL.md を参照して実行
 /retrospect  # メインセッションから起動
 ```
 
-## shelf との関係
+## [agent-shelf](https://github.com/examinare000/agent-shelf) との関係
 
 `distill/extract.py` は掲載された個人メモリのマスク・引き出しの正本です。
-別途の shelf MCP が個人ナレッジベースを配置している場合、distill の設定値を参照して一元化可能です。
+別途の [agent-shelf](https://github.com/examinare000/agent-shelf) MCP が個人ナレッジベースを配置している場合、distill の設定値を参照して一元化可能です。
 
 ## テスト実行
 
@@ -206,7 +211,7 @@ uv run pytest
 ## `~/.claude/rules/94-self-improvement-protocol.md` との関係
 
 recall は自己改善プロトコル（`~/.claude/rules/94-self-improvement-protocol.md`。
-別頒布の agent-forge フレームワークの installer がこのパスに配置する）の実装基盤です：
+[agent-forge](https://github.com/examinare000/agent-forge) フレームワークの installer がこのパスに配置する）の実装基盤です：
 
 - **Step 1（記録）**: archive-session hook が session → corpus へ自動記録
 - **Step 2（蒸留）**: distill/extract.py + distill-preferences skill で発話 → inbox
@@ -222,5 +227,5 @@ MIT License - Copyright (c) 2026 Ryosuke Ikeda
 
 ## 参考
 
-- `~/.claude/rules/94-self-improvement-protocol.md`: 自己改善プロトコル（agent-forge の installer が配置。上流ソースは [agent-forge リポジトリ](https://github.com/yourorg/agent-forge) 参照）
+- `~/.claude/rules/94-self-improvement-protocol.md`: 自己改善プロトコル（[agent-forge](https://github.com/examinare000/agent-forge) の installer が配置。上流ソースは [agent-forge リポジトリ](https://github.com/examinare000/agent-forge) 参照）
 - [claude-code CLAUDE.md: Memory 型と規約](https://github.com/anthropics/claude-code/docs/CLAUDE.md)
