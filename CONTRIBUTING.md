@@ -11,6 +11,7 @@ We welcome issues and pull requests in both Japanese and English.
 
 ## Pull Requests
 
+- Direct pushes to `main` are not allowed — changes must go through a PR with a green CI.
 - One PR per feature or fix
 - Include tests for any new functionality
 - Ensure all tests pass: `uv run pytest`
