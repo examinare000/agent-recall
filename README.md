@@ -6,6 +6,8 @@ recall — session-archive semantic search MCP + lesson distillation pipeline fo
 
 Session archive の意味検索 MCP と教訓蒸留パイプラインの統合ツール。Claude Code の自己改善ループ（rule 94: self-improvement-protocol）を支える記憶・学習基盤です。
 
+**単体導入可**：agent-forge がなくても recall は独立して動作します。`/retrospect` スキル、`/distill-preferences`、MCP サーバー（セッションアーカイブ検索）は常時利用可能です。
+
 ## 概要
 
 `accumulate → distill → apply` の3段階ループで、セッションアーカイブから構造的な再発パターンを抽出し、skill / agent-rules / hooks / memory / docs へ昇格させます。
@@ -220,6 +222,8 @@ recall は自己改善プロトコル（`~/.claude/rules/94-self-improvement-pro
 - **Step 6-8（適用・反射）**: git-composer が PR 作成（人間承認待ち）
 
 週次スケジューラ（launchd）が 1-3 を自動化；4-6 は提案で停止（人間が最終承認）。
+
+**agent-forge 未導入環境での差分**：`~/.claude/rules/94-self-improvement-protocol.md` が存在しない場合、(a) rule 94 による自動トリガが無い（`/agent-recall:setup`・`/retrospect` の手動起動は完動）、(b) retrospect Step 5 の既存 rules 照合が空になる、の2点のみです。recall MCP、スキル、hook の機能は変わらず全て利用可能です。
 
 ## ライセンス
 

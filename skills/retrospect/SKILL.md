@@ -1,6 +1,6 @@
 ---
 name: retrospect
-description: 蓄積された教訓候補（lessons/inbox）とセッションアーカイブ（corpus + recall 検索）から再発パターンを抽象化し、skill 化・agent-rules 追記・hook 化・memory カード化・docs(ADR) 化の提案まで自律的に行う振り返りの手続き。「振り返りして」「/retrospect」「教訓をまとめて」依頼時、inbox が 5 件を超えた時、または launchd 定期実行で使用。正本トリガは `~/.claude/rules/94-self-improvement-protocol.md`。
+description: 蓄積された教訓候補（lessons/inbox）とセッションアーカイブ（corpus + recall 検索）から再発パターンを抽象化し、skill 化・agent-rules 追記・hook 化・memory カード化・docs(ADR) 化の提案まで自律的に行う振り返りの手続き。「振り返りして」「/retrospect」「教訓をまとめて」依頼時、inbox が 5 件を超えた時、または launchd 定期実行で使用。正本トリガは `~/.claude/rules/94-self-improvement-protocol.md`（agent-forge 導入環境。未導入なら自動トリガはなく本スキルの手動起動のみ）。
 ---
 
 # Retrospect（振り返り・教訓昇格の手続き）
