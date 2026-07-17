@@ -30,7 +30,9 @@ description: 蓄積された教訓候補（lessons/inbox）とセッションア
 - `STATE.last_run` 以降に更新された corpus セッション（`find CORPUS -name '*.jsonl' -newer ...`）を列挙し、
   **バルク読みは Explore / haiku サブエージェントへ委譲**して「バグ修正・レビュー指摘・ユーザー訂正の痕跡」を抽出させる
   （メインのコンテキストを生ログで汚さない。1エージェントあたり最大10ファイル程度で分割）。
-- 各候補について recall `memory_search` で過去の類似事例を照合し、出現回数の証拠を集める。
+- 各候補について recall `memory_search` で過去の類似事例を照合し、出現回数の証拠を集める
+  （ツール名は導入形態により異なる: user-scope 登録では `mcp__recall__memory_search`、
+  プラグイン導入では `mcp__plugin_agent-recall_recall__memory_search`。いずれか利用可能な方を使う）。
 - バルク読み委譲の抽出対象に**軌跡シグナル**を含める: フックによるブロック（`exit 2`）、permission / 分類器拒否、`NEEDS_DECISION` / `BLOCKED` 往復、同一タスクの再委譲、レビュー拒否後の手戻り。これらはオーケストレーション設計の教訓候補として扱う（コードの正当性レビューは diff-only の code-reviewer の役割のままで、軌跡は事後のプロセス分析にのみ用いる）。
 - inbox に frontmatter の無い旧形式候補があれば、94 の形式（type/project/date/summary/evidence/origin）へ正規化して扱う（「出所」記載は `origin:` に写像）。
 

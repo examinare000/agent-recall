@@ -1,0 +1,13 @@
+{
+  "name": "agent-recall",
+  "owner": {
+    "name": "Ryosuke Ikeda"
+  },
+  "plugins": [
+    {
+      "name": "agent-recall",
+      "source": "./",
+      "description": "セッションアーカイブの意味検索と教訓蒸留による自己改善基盤"
+    }
+  ]
+}

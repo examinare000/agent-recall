@@ -41,3 +41,26 @@ class TestCorpusDirDefault:
             importlib.reload(config)
             assert config.CORPUS_DIR == tmp_path
         importlib.reload(config)
+
+
+class TestDbPathDefault:
+    def test_defaults_to_dot_claude_agent_recall_index(self, monkeypatch) -> None:
+        # plugin install はファイルコピーのみで uv sync を行わず、cache は更新のたびに
+        # 揮発する。索引DBを REPO_ROOT 配下（cache 内）に置くと利用者データが消えるため、
+        # cache の外である ~/.claude/agent-recall/ 配下を既定にする回帰テスト。
+        with monkeypatch.context() as m:
+            m.delenv("RECALL_DB_PATH", raising=False)
+            importlib.reload(config)
+            assert (
+                config.DB_PATH
+                == Path.home() / ".claude" / "agent-recall" / "index" / "recall.db"
+            )
+        importlib.reload(config)  # env 復元後にモジュール状態も既定へ戻す
+
+    def test_env_override_still_wins(self, monkeypatch, tmp_path) -> None:
+        # 単体テストが実DBへ副作用を及ぼさないための上書き経路を維持する回帰テスト。
+        with monkeypatch.context() as m:
+            m.setenv("RECALL_DB_PATH", str(tmp_path / "recall.db"))
+            importlib.reload(config)
+            assert config.DB_PATH == tmp_path / "recall.db"
+        importlib.reload(config)

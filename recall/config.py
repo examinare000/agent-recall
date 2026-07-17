@@ -19,10 +19,15 @@ CORPUS_DIR = Path(
     )
 )
 # DB_PATH はコーパス本体と異なり、コーパスから毎回再構築できる派生インデックス
-# （埋め込みベクトル・チャンクのキャッシュ。.gitignore の `.index/` も参照）。
-# 「利用者データ」ではなくクローンごとのビルド成果物なので、~/.claude/ 配下の
-# 標準パス規約には合わせず、リポジトリ内部（REPO_ROOT 配下）のままにする。
-DB_PATH = Path(os.environ.get("RECALL_DB_PATH", REPO_ROOT / "recall" / ".index" / "recall.db"))
+# （埋め込みベクトル・チャンクのキャッシュ）だが、Claude Code プラグインとして配布する場合、
+# plugin install はファイルコピーのみで uv sync を行わず、plugin cache は更新のたびに
+# 揮発する。REPO_ROOT 配下（cache 内）に置くと再索引のたびに利用者データが消えるため、
+# cache の外である ~/.claude/agent-recall/ 配下を既定にする。
+DB_PATH = Path(
+    os.environ.get(
+        "RECALL_DB_PATH", Path.home() / ".claude" / "agent-recall" / "index" / "recall.db"
+    )
+)
 MODEL_NAME = os.environ.get(
     "RECALL_MODEL_NAME", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 )

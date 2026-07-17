@@ -1,5 +1,5 @@
 [project]
-name = "recall"
+name = "agent-recall"
 version = "0.1.0"
 description = "corpus/claude-code/ を意味検索するための MCP サーバ（MVP）"
 requires-python = ">=3.11"

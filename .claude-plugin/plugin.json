@@ -1,0 +1,9 @@
+{
+  "name": "agent-recall",
+  "version": "0.1.0",
+  "description": "セッションアーカイブの意味検索と教訓蒸留による自己改善基盤",
+  "author": {
+    "name": "Ryosuke Ikeda"
+  },
+  "license": "MIT"
+}
