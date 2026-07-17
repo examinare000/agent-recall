@@ -18,7 +18,7 @@ recall = "recall.cli:main"
 # README/完了条件が `uv run pytest`（プレーン実行）を前提にしているため、この形式にする。
 dev = [
     "pytest>=8.0",
-    "ruff>=0.6",
+    "ruff>=0.15.22",
 ]
 
 [build-system]
