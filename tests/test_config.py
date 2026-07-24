@@ -10,7 +10,7 @@ from __future__ import annotations
 import importlib
 from pathlib import Path
 
-import recall.config as config
+from recall import config
 from recall.config import EXTRACT_PY_PATH, REPO_ROOT
 
 

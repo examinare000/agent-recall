@@ -10,6 +10,7 @@
 資格情報らしき文字列はマスクする。蒸留(=嗜好抽出)は別途 Claude が SKILL.md 手順で行う。
 """
 from __future__ import annotations
+
 import argparse
 import glob
 import json
@@ -64,9 +65,7 @@ def is_human_prompt(d: dict) -> bool:
         return False
     if d.get("isSidechain"):           # サブエージェント内部
         return False
-    if d.get("userType") not in (None, "external"):
-        return False
-    return True
+    return d.get("userType") in (None, "external")
 
 
 def load_state():
@@ -118,8 +117,7 @@ def main():
                     proj = Path(f).parent.name
                     branch = d.get("gitBranch", "") or "-"
                     rows.append((ts, proj, branch, text))
-                    if ts > max_ts:
-                        max_ts = ts
+                    max_ts = max(max_ts, ts)
         except OSError:
             continue
 
@@ -130,8 +128,8 @@ def main():
 
     lines = [f"# 発話ダイジェスト (since={since or 'BEGIN'} → {max_ts or 'END'})",
              f"\n抽出件数: {len(rows)} 発話\n",
-             "蒸留手順は distill/SKILL.md を参照。"
-             "下記はノイズ除去済みの人間発話のみ。\n"]
+             ("蒸留手順は distill/SKILL.md を参照。"
+              "下記はノイズ除去済みの人間発話のみ。\n")]
     cur = None
     for ts, proj, branch, text in rows:
         head = f"{proj} [{branch}]"

@@ -6,9 +6,9 @@ fixture の行リストだけで全パターンを高速に単体テストでき
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 from recall.masking import SKIP_PREFIXES, extract_text, is_human_prompt, mask
 
