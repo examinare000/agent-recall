@@ -22,6 +22,11 @@ HERE = Path(__file__).resolve().parent
 OUT_DIR = HERE / "out"
 STATE = HERE / ".extract-state.json"
 
+# 1発話あたりの最大文字数（超過は切り詰め）。recall/chunker.py が同じ
+# 切り詰め・マスク規約を共有するため、recall/masking.py 経由で
+# この値を再エクスポートする（単一情報源化。目視同期での drift を防ぐ）。
+MAX_CHARS = 1500
+
 # 人間の発話ではない=除外するための先頭パターン
 SKIP_PREFIXES = (
     "<command-", "<local-command-", "<bash-", "<system-reminder",
@@ -79,7 +84,7 @@ def main():
     ap.add_argument("--since", default=None,
                     help="ISO timestamp。未指定なら状態ファイルの続きから")
     ap.add_argument("--all", action="store_true", help="状態を無視して全件")
-    ap.add_argument("--max-chars", type=int, default=1500,
+    ap.add_argument("--max-chars", type=int, default=MAX_CHARS,
                     help="1発話の最大文字数（超過は切り詰め）")
     args = ap.parse_args()
 

@@ -1,8 +1,12 @@
 """chunker.chunk_session の純粋関数テスト（ファイル/DB 一切なし）。"""
 from __future__ import annotations
 
+import importlib
 import json
+import sys
 
+from recall import chunker as chunker_module
+from recall import masking as masking_module
 from recall.chunker import Chunk, chunk_session
 
 
@@ -223,3 +227,46 @@ class TestMetadata:
         ]
         chunks = chunk_session(lines, "proj/a.jsonl")
         assert [c.id for c in chunks] == ["proj/a.jsonl#0", "proj/a.jsonl#1"]
+
+
+class TestMaxCharsSingleSource:
+    def test_max_chars_default_is_sourced_from_extract_py(self, monkeypatch):
+        """MAX_CHARS が distill/extract.py の値の単なる重複コピーでなく、実際に
+        import 経由で伝播していることを固定する回帰テスト。
+
+        値の一致(== 1500)だけを見るテストは chunker.py 側が独自の裸リテラルを
+        持っていても偶然一致で通ってしまう。distill_extract 側の値を
+        monkeypatch で差し替えてから masking→chunker の順に reload し、
+        変更が実際に伝播することまで確認する。
+
+        注意: reload は sys.modules 上の recall.chunker / recall.masking を
+        新世代オブジェクトへ差し替える。reload によりモジュール内クラスの同一性が
+        変わるため、Chunk の isinstance 比較をこのテスト以降に行うテストを
+        追加する場合は注意が必要（reload 前の古い Chunk クラスと新しい世代の
+        Chunk が異なるため、黙って False になる）。
+        """
+        extract_module = sys.modules["distill_extract"]
+        try:
+            with monkeypatch.context() as m:
+                m.setattr(extract_module, "MAX_CHARS", 99)
+                importlib.reload(masking_module)
+                importlib.reload(chunker_module)
+                assert chunker_module.MAX_CHARS == 99
+        finally:
+            # try/finally にするのは、assert 失敗時にも必ず復元処理を走らせるため
+            # （with ブロックだけだと例外発生時にこの後続コードへ到達しない）。
+            # with ブロックで monkeypatch は元の値に戻るが、reload 済みの
+            # masking_module/chunker_module はモジュール状態として汚れたままなので、
+            # 実体の値を使って再度 reload し、後続テストへの影響を残さないようにする。
+            importlib.reload(masking_module)
+            importlib.reload(chunker_module)
+            # 値が正規状態へ戻ったことを確認
+            assert chunker_module.MAX_CHARS == 1500
+            # reload は Chunk クラス/chunk_session 関数を新しいオブジェクトとして
+            # 再生成する。本ファイル冒頭の `from recall.chunker import Chunk,
+            # chunk_session` で束縛した名前は reload 前の古い実体を指したままに
+            # なり、後続テストの isinstance(chunk, Chunk) が意図せず偽になる
+            # （本テストの reload に起因するクロスコンタミネーション）。
+            # 再読込後の実体で束縛し直すことでこれを防ぐ。
+            globals()["Chunk"] = chunker_module.Chunk
+            globals()["chunk_session"] = chunker_module.chunk_session
