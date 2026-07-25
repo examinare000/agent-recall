@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-07-25
+
+### Added
+
+- **busy_timeout PRAGMA**: 長命サーバと別プロセス CLI の同時アクセス時のロック競合を低減
+  - `Store.__init__` に `PRAGMA busy_timeout = 5000ms` を設定
+  - SQLITE_BUSY 等の単発ロックからの自動回復を実現し、FTS が恒久的に無効化されるリスクを排除
+
+### Fixed (v0.3.0 マージ後)
+
+- **プローブ失敗時の chunks_fts 回復不可**: SQLITE_BUSY 等の一過性障害から回復できない（PR #7 で `DROP TABLE IF EXISTS chunks_fts` により再作成可能に）
+
 ## [0.3.0] - 2026-07-25
 
 ### Added
