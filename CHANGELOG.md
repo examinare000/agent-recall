@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-25
+
 ### Added (retrospect skill)
 
 - **全文グラウンディング出力契約**: corpus バルク読み委譲時に、各教訓候補の根拠参照（秘密を含まない逐語部分文字列 30〜120字 + ファイル名）の必須添付・ungrounded 明記を指示
