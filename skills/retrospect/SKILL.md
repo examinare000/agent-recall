@@ -18,6 +18,7 @@ description: 蓄積された教訓候補（lessons/inbox）とセッションア
 | STATE | `LESSONS/state.json`（`{"last_run": "<ISO8601>", "processed_ids": [...]}`） |
 | CORPUS | `~/.claude/corpus/claude-code/` |
 | MEMORY | `~/.claude/projects/<proj>/memory/`（プロジェクト別 auto-memory） |
+| TRIALLOG | 作業リポジトリ群のルート（例: `~/git`）配下の `*/docs/trial-log/*.md`（worktree 配下含む）。自分のリポジトリ配置規約に合わせて読み替える。docs/trial-log/ を運用していないリポジトリはスキップしてよい |
 
 ## 手順（順序固定）
 
@@ -30,6 +31,11 @@ description: 蓄積された教訓候補（lessons/inbox）とセッションア
 - `STATE.last_run` 以降に更新された corpus セッション（`find CORPUS -name '*.jsonl' -newer ...`）を列挙し、
   **バルク読みは Explore / haiku サブエージェントへ委譲**して「バグ修正・レビュー指摘・ユーザー訂正の痕跡」を抽出させる
   （メインのコンテキストを生ログで汚さない。1エージェントあたり最大10ファイル程度で分割）。
+- **出力契約（全文グラウンディング）**: 抽出させる各教訓候補には根拠参照を必須添付させる — **秘密を含まない**特徴的な逐語部分文字列（30〜120字、単一発話内）+ 出典 corpus ファイル名。参照を付けられない観察は `ungrounded` と明記させる（根拠なしで黙って混ぜさせない）。
+- 受領後、参照を**機械解決**する: 部分文字列を recall `memory_search` で照合し、ヒットしたチャンクの本文（`memory_get`）に部分文字列が含まれることを確認して `recall:<chunk_id>` へ解決する。解決不能な参照は**その参照だけを落とす**（候補ごとは落とさない）。
+- 解決不能な参照は棄却前に**二分**する: 参照が指すセッションの索引 chunk 数を確認し（`sqlite3 "${RECALL_DB_PATH:-$HOME/.claude/agent-recall/index/recall.db}" "SELECT count(*) FROM chunks WHERE source_file LIKE '%<session>%'"`）、僅少（目安 2 以下）なら `unindexed`（索引被覆の限界 — 引用の虚偽ではない）、十分あるのに不一致なら `search-failure`（捏造疑い）とタグ付けする。**信頼度降格（`origin: unknown` 相当への1段下げ・rules / skill 昇格根拠からの除外）は search-failure で全参照が落ちた候補のみに適用**し、unindexed は参照を落とすが降格せず、出現回数カウントには `session:<id>` を用いる。
+- inbox 正規化の evidence には可能な限り `session:<id>` に加えて `recall:<chunk_id>` を含める。
+- **trial-log の収集**: TRIALLOG で定義した範囲から `STATE.last_run` 以降に更新されたファイルを読み、棄却・失敗のエントリを教訓候補として取り込む。trial-log はリポジトリ内のファイルであり `path:line` で直接参照できるため、グラウンディングは**ファイル実在と当該行の照合**で足りる。evidence には `<repo>/docs/trial-log/<file>:<line>` を記す。**corpus 由来の逐語照合・unindexed/search-failure の二分は corpus 由来の参照にのみ適用する**。
 - 各候補について recall `memory_search` で過去の類似事例を照合し、出現回数の証拠を集める
   （ツール名は導入形態により異なる: user-scope 登録では `mcp__recall__memory_search`、
   プラグイン導入では `mcp__plugin_agent-recall_recall__memory_search`。いずれか利用可能な方を使う）。
@@ -42,6 +48,7 @@ description: 蓄積された教訓候補（lessons/inbox）とセッションア
   - 各クラスタの抽象化: 前提 ➔ 目的 ➔ 失敗様式 ➔ 対策（具体事象の列挙ではなく構造で書く）
   - **反証チェック**: 「これは偶然の2回か、構造的な再発か」の判定と根拠
   - 昇格先の判定案（Step 4 の分類基準による）
+- 候補群は Step 2 の検証済み根拠参照（`recall:<chunk_id>` / `<repo>/docs/trial-log/<file>:<line>`）付きで渡す。出現回数のカウントは検証済み参照（および recall 照合のセッションID）のみを数えるよう指示する。
 
 ### Step 4: 分類（94 の昇格基準）
 | 性質 | 昇格先 |
@@ -82,3 +89,5 @@ description: 蓄積された教訓候補（lessons/inbox）とセッションア
 - 生トランスクリプトの全文をメインコンテキストへ読み込む（必ずサブエージェント経由で要約抽出）。
 - 根拠（教訓ID・セッションID・出現回数）の無い昇格案。
 - 秘密情報（トークン・鍵・パス内の個人情報）を教訓・提案へ転記する（マスクして書く）。
+- 機械解決を通らない参照を evidence として提案書・frontmatter に転記する（検証不能参照は参照単位で棄却。全参照が落ちた候補の昇格は memory 止まり）。
+- 秘密情報を含む文字列を検証用引用に選ぶ（引用は秘密を含まない部分文字列を選び直す。既存のマスク転記禁止則の具体化）。
