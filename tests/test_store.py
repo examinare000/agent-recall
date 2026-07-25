@@ -358,12 +358,17 @@ class TestFtsInitProbe:
     ):
         # プローブ失敗時に chunks_fts を DROP して、次回オープンで再作成・バックフィルを
         # 実行できるようにする（SQLITE_BUSY 等の一過性失敗から回復する手段）。
+        # バックフィルが必要な移行前 DB シナリオ: chunks は生存・chunks_fts は不在。
         db_path = tmp_path / "recall.db"
-        store1 = Store(str(db_path))
-        store1.upsert_chunks([_chunk(text="quantum entanglement")], _embeddings(1))
-        store1.close()
 
-        # 1 回目オープン: プローブ失敗を強制
+        # step 0: 移行前 DB を作成（chunks あり・chunks_fts なし）
+        store0 = Store(str(db_path))
+        store0.upsert_chunks([_chunk(text="quantum entanglement")], _embeddings(1))
+        store0._conn.execute("DROP TABLE chunks_fts")  # FTS 未導入を模す
+        store0._conn.commit()
+        store0.close()
+
+        # step 1: プローブ失敗を強制（CREATE 直後・バックフィル前に失敗）
         call_count = [0]
 
         def failing_probe_once(self):
@@ -374,19 +379,21 @@ class TestFtsInitProbe:
 
         monkeypatch.setattr(Store, "_probe_fts", failing_probe_once)
 
-        store2 = Store(str(db_path))
-        store2.close()
-        # fts_enabled は False（プローブ失敗により disable）だが chunks_fts は削除済みのため
-        # 再度開く際に再作成される
+        store1 = Store(str(db_path))
+        store1.close()
+        # fts_enabled は False（プローブ失敗により disable）。
+        # 修正がある場合: chunks_fts は DROP されているため already_existed=False
+        # 修正がない場合: chunks_fts は空テーブルのまま残り already_existed=True → バックフィルが実行されない
 
-        # 2 回目オープン: DROP 済みなため新規作成からバックフィル
-        store3 = Store(str(db_path))
+        # step 2: 2 回目オープン
+        store2 = Store(str(db_path))
         try:
-            # chunks_fts が再作成されバックフィルされているため keyword_topk が結果を返す
-            hits = store3.keyword_topk("quantum", limit=10)
+            # 修正あり: chunks_fts が再作成されバックフィルされているため keyword_topk が結果を返す
+            # 修正なし: chunks_fts は空のまま（バックフィル未実行）のため keyword_topk は []
+            hits = store2.keyword_topk("quantum", limit=10)
             assert [chunk_id for chunk_id, _score in hits] == ["a.jsonl#0"]
         finally:
-            store3.close()
+            store2.close()
 
 
 class TestFtsMigration:
