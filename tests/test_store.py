@@ -1,10 +1,13 @@
 """Store の往復（insert/read/delete）と file_state/meta の単体テスト。:memory: SQLite のみ使用。"""
 from __future__ import annotations
 
+import sqlite3
+
 import numpy as np
 import pytest
 
 from recall.chunker import Chunk
+from recall.search import build_fts_query
 from recall.store import Store
 
 
@@ -24,6 +27,10 @@ def _chunk(id_="a.jsonl#0", source_file="a.jsonl", project="proj", text="本文"
         timestamp="2026-01-01T00:00:00Z",
         text=text,
     )
+
+
+def _embeddings(n, dim=2):
+    return np.array([[0.1, 0.2]] * n, dtype=np.float32)[:, :dim]
 
 
 class TestChunkRoundTrip:
@@ -142,6 +149,19 @@ class TestClearAll:
         assert ids == []
         assert store.get_file_state("a.jsonl") is None
 
+    def test_clear_all_survives_broken_fts_and_clears_chunks(self, store):
+        # 壊れた chunks_fts（削除済み等）に対する clear_all がクラッシュせず
+        # chunks を消すことを検証する（recall index --all の唯一の回復手段）。
+        store.upsert_chunks([_chunk()], np.array([[0.1, 0.2]], dtype=np.float32))
+        store._conn.execute("DROP TABLE chunks_fts")  # FTS を壊す
+        store._conn.commit()
+
+        # クラッシュせず chunks が消えることを確認
+        store.clear_all()
+
+        ids, _ = store.load_all_vectors()
+        assert ids == []
+
 
 class TestMeta:
     def test_get_meta_returns_none_when_absent(self, store):
@@ -155,3 +175,237 @@ class TestMeta:
         store.set_meta("model", "old")
         store.set_meta("model", "new")
         assert store.get_meta("model") == "new"
+
+
+class TestKeywordTopK:
+    """FTS5（trigram tokenizer）によるキーワード検索索引 chunks_fts。
+
+    上流 agent-shelf/shelf/store.py の keyword_topk 系テストを、notebook 必須引数を
+    project 任意フィルタへ読み替えて移植する。
+    """
+
+    def test_fts_enabled_is_true_on_this_sqlite_build(self, store):
+        # このプロジェクトの動作環境は fts5+trigram が有効な SQLite にリンクされて
+        # いる前提（実装ノート参照）。無効ならフェイルソフトパス（別テストで検証）
+        # が働くはずなのでここでは有効を確認する。
+        assert store.fts_enabled is True
+
+    def test_keyword_topk_hits_japanese_natural_sentence_via_build_fts_query(self, store):
+        # build_fts_query が空白なし日本語自然文をtrigramへ展開することで、
+        # CJK 自然文がヒットすることを検証する（ハイブリッド検索の要）。
+        store.upsert_chunks(
+            [_chunk(text="量子力学の基礎について解説する資料です。")],
+            _embeddings(1),
+        )
+
+        hits = store.keyword_topk(
+            build_fts_query("量子力学の基礎について教えてください"), limit=10
+        )
+
+        assert [chunk_id for chunk_id, _score in hits] == ["a.jsonl#0"]
+
+    def test_keyword_topk_reflects_updated_chunk_text(self, store):
+        # 外部コンテンツ FTS の rowid 据え置き delete→insert が正しく機能し、
+        # 上書き前の旧テキストの索引が残らないことを検証する。
+        store.upsert_chunks([_chunk(text="classical mechanics")], _embeddings(1))
+        assert store.keyword_topk("quantum", limit=10) == []
+
+        store.upsert_chunks([_chunk(text="quantum entanglement")], _embeddings(1))
+
+        hits = store.keyword_topk("quantum", limit=10)
+        assert [chunk_id for chunk_id, _score in hits] == ["a.jsonl#0"]
+        assert store.keyword_topk("classical", limit=10) == []
+
+    def test_keyword_topk_excludes_chunks_removed_by_delete_by_source_file(self, store):
+        store.upsert_chunks([_chunk(text="quantum entanglement")], _embeddings(1))
+        assert len(store.keyword_topk("quantum", limit=10)) == 1
+
+        store.delete_by_source_file("a.jsonl")
+
+        assert store.keyword_topk("quantum", limit=10) == []
+
+    def test_keyword_topk_excludes_chunks_removed_by_clear_all(self, store):
+        store.upsert_chunks([_chunk(text="quantum entanglement")], _embeddings(1))
+        assert len(store.keyword_topk("quantum", limit=10)) == 1
+
+        store.clear_all()
+
+        assert store.keyword_topk("quantum", limit=10) == []
+
+    def test_keyword_topk_filters_by_project(self, store):
+        store.upsert_chunks(
+            [
+                _chunk(id_="a.jsonl#0", project="proj-a", text="quantum entanglement"),
+                _chunk(
+                    id_="b.jsonl#0",
+                    source_file="b.jsonl",
+                    project="proj-b",
+                    text="quantum computing basics",
+                ),
+            ],
+            _embeddings(2),
+        )
+
+        hits = store.keyword_topk("quantum", limit=10, project="proj-a")
+
+        assert [chunk_id for chunk_id, _score in hits] == ["a.jsonl#0"]
+
+    def test_keyword_topk_returns_empty_list_for_blank_query(self, store):
+        store.upsert_chunks([_chunk(text="quantum entanglement")], _embeddings(1))
+
+        assert store.keyword_topk("   ", limit=10) == []
+        assert store.keyword_topk("", limit=10) == []
+
+    def test_keyword_topk_returns_empty_and_other_ops_survive_when_fts_disabled(self, store):
+        store.upsert_chunks([_chunk(text="quantum entanglement")], _embeddings(1))
+        store.fts_enabled = False  # fts5/trigram が使えない環境の劣化パスを強制検証
+
+        assert store.keyword_topk("quantum", limit=10) == []
+        # fts が無効でも通常の書き込み経路（upsert/delete）が壊れないことを検証する。
+        store.upsert_chunks(
+            [_chunk(id_="a.jsonl#1", text="classical mechanics")], _embeddings(1)
+        )
+        store.delete_by_source_file("a.jsonl")
+        ids, _ = store.load_all_vectors()
+        assert ids == []
+
+    def test_keyword_topk_returns_empty_list_for_invalid_match_syntax(self, store):
+        # 上流指摘: 未閉じ引用符のような不正な MATCH 構文もユーザー由来なので
+        # 例外にせず [] に劣化する（呼び出し側がキーワード検索を諦めてベクタ検索のみに
+        # フォールバック可能にするため）。
+        store.upsert_chunks([_chunk(text="quantum entanglement")], _embeddings(1))
+
+        assert store.keyword_topk('"unterminated', limit=10) == []
+
+    def test_keyword_topk_degrades_and_disables_fts_on_broken_read_state(
+        self, store, monkeypatch, caplog
+    ):
+        # 上流指摘: 読み取り(MATCH SELECT)自体が壊れている(read-only DB・
+        # fts5 モジュール消失等)場合も keyword_topk の docstring 契約どおり例外にせず
+        # [] に劣化させ、以後の呼び出しでは fts_enabled を落として静かにスキップし
+        # 続けることを検証する(壊れたクエリを毎回再実行して警告ログを連発しない)。
+        store.upsert_chunks([_chunk(text="quantum entanglement")], _embeddings(1))
+        store._conn.execute("DROP TABLE chunks_fts")  # 読み取りが壊れた状態を人工的に作る
+
+        with caplog.at_level("WARNING"):
+            assert store.keyword_topk("quantum", limit=10) == []
+
+        assert store.fts_enabled is False
+        assert len(caplog.records) == 1  # 警告は初回失敗時に1回だけ
+
+        # フラグが立った後、壊れた接続へ再クエリしないことを保証する。
+        # sqlite3.Connection は C 拡張型でメソッドの直接差し替えができないため、
+        # Store._conn 自体を MagicMock に差し替えて execute 未呼び出しを検証する。
+        from unittest.mock import MagicMock
+
+        fake_conn = MagicMock()
+        monkeypatch.setattr(store, "_conn", fake_conn)
+
+        with caplog.at_level("WARNING"):
+            assert store.keyword_topk("quantum", limit=10) == []
+        fake_conn.execute.assert_not_called()
+        assert len(caplog.records) == 1  # 2回目の呼び出しで警告が増えない(黙ってスキップ)
+
+    def test_fts_capture_rows_by_ids_splits_into_batch_sized_calls(self, store, monkeypatch):
+        # 上流のバインドパラメータ上限超過バグ（IN句バッチ分割欠如）の回帰テスト。
+        # 各バッチが _GET_CHUNKS_BATCH_SIZE 件以下に収まることを直接検証する。
+        batch_size = Store._GET_CHUNKS_BATCH_SIZE
+        ids = [f"a.jsonl#{i}" for i in range(batch_size + 1)]
+        call_sizes: list[int] = []
+        original = store._fts_capture_rows
+
+        def spy(where_clause, params):
+            call_sizes.append(len(params))
+            return original(where_clause, params)
+
+        monkeypatch.setattr(store, "_fts_capture_rows", spy)
+
+        store._fts_capture_rows_by_ids(ids)
+
+        assert call_sizes == [batch_size, 1]
+
+
+class TestFtsInitProbe:
+    """CREATE VIRTUAL TABLE IF NOT EXISTS はテーブル既存時にモジュール検証を行わない
+    ため、_init_fts は実際に MATCH を実行するプローブクエリで fts5/trigram の
+    動作を検証する（上流コミット 1e39c86 の移植）。
+    """
+
+    def test_pre_existing_fts_table_disables_when_probe_fails(
+        self, tmp_path, monkeypatch, caplog
+    ):
+        db_path = tmp_path / "recall.db"
+        store1 = Store(str(db_path))  # 通常起動で chunks_fts を作成しておく(テーブル既存化)
+        store1.close()
+
+        def failing_probe(self):
+            raise sqlite3.OperationalError("simulated: trigram tokenizer unavailable")
+
+        monkeypatch.setattr(Store, "_probe_fts", failing_probe)
+
+        with caplog.at_level("WARNING"):
+            store2 = Store(str(db_path))
+        try:
+            assert store2.fts_enabled is False
+            # DB オープン時に FTS が無効化された事実は運用上observableであるべき
+            # なので、_fts_disable_after_failure 経由で警告が1回出る。
+            assert len(caplog.records) == 1
+        finally:
+            store2.close()
+
+    def test_probe_failure_drops_fts_table_for_retry_on_next_open(
+        self, tmp_path, monkeypatch
+    ):
+        # プローブ失敗時に chunks_fts を DROP して、次回オープンで再作成・バックフィルを
+        # 実行できるようにする（SQLITE_BUSY 等の一過性失敗から回復する手段）。
+        db_path = tmp_path / "recall.db"
+        store1 = Store(str(db_path))
+        store1.upsert_chunks([_chunk(text="quantum entanglement")], _embeddings(1))
+        store1.close()
+
+        # 1 回目オープン: プローブ失敗を強制
+        call_count = [0]
+
+        def failing_probe_once(self):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                raise sqlite3.OperationalError("simulated: SQLITE_BUSY")
+            # 2 回目以降は成功
+
+        monkeypatch.setattr(Store, "_probe_fts", failing_probe_once)
+
+        store2 = Store(str(db_path))
+        store2.close()
+        # fts_enabled は False（プローブ失敗により disable）だが chunks_fts は削除済みのため
+        # 再度開く際に再作成される
+
+        # 2 回目オープン: DROP 済みなため新規作成からバックフィル
+        store3 = Store(str(db_path))
+        try:
+            # chunks_fts が再作成されバックフィルされているため keyword_topk が結果を返す
+            hits = store3.keyword_topk("quantum", limit=10)
+            assert [chunk_id for chunk_id, _score in hits] == ["a.jsonl#0"]
+        finally:
+            store3.close()
+
+
+class TestFtsMigration:
+    """旧スキーマ（chunks_fts なし）DB を再オープンした際の一度きりのバックフィル。"""
+
+    def test_reopening_db_with_pre_existing_chunks_but_no_fts_table_backfills_once(
+        self, tmp_path
+    ):
+        db_path = tmp_path / "recall.db"
+        store1 = Store(str(db_path))
+        store1.upsert_chunks([_chunk(text="quantum entanglement")], _embeddings(1))
+        store1._conn.execute("DROP TABLE chunks_fts")  # FTS 未導入の旧 DB を模す
+        store1._conn.commit()
+        store1.close()
+
+        store2 = Store(str(db_path))
+        try:
+            hits = store2.keyword_topk("quantum", limit=10)
+        finally:
+            store2.close()
+
+        assert [chunk_id for chunk_id, _score in hits] == ["a.jsonl#0"]

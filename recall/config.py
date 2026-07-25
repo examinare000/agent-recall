@@ -34,3 +34,28 @@ MODEL_NAME = os.environ.get(
 EXTRACT_PY_PATH = Path(
     os.environ.get("RECALL_EXTRACT_PY_PATH", REPO_ROOT / "distill" / "extract.py")
 )
+
+
+def _bool_env(name: str, default: bool) -> bool:
+    """真偽値の env 上書きを解決する（上流 agent-shelf/shelf/config.py の方式を移植）。
+
+    "1"/"true"（大文字小文字不問）だけを真として認識し、それ以外の明示的な値
+    （"false"/"0"/"no"/"off" は当然含む）は全て偽と扱う。設定ミスで意図せず
+    真になる方が誤検知として気付きにくいため、許可リスト方式（真の側だけを
+    明示列挙）を採用している。
+    """
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in ("1", "true")
+
+
+# ask/search のチャンク検索を、cosine ベクトル検索単体ではなく FTS5 キーワード検索
+# (BM25) との RRF（Reciprocal Rank Fusion）併用にするかどうか。既定 True: ベクトル
+# 検索は意味的に近いが語彙が一致しない文を拾える一方、固有名詞・型番のような
+# 表記ゆれの少ない語の完全一致取りこぼしに弱いため、キーワード検索を併用した方が
+# 実運用の検索精度が高いと判断した。fts5/trigram tokenizer が使えない環境では
+# store.fts_enabled=False により自動的にベクトル単体へ劣化する（このフラグは
+# 「使う意図があるか」のみを表す。上流 agent-shelf/shelf/config.py の HYBRID_SEARCH
+# と同じ設計）。
+HYBRID_SEARCH = _bool_env("RECALL_HYBRID_SEARCH", True)

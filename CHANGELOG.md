@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-25
+
+### Added
+
+- **ハイブリッド検索**: cosine ベクトル検索と FTS5 キーワード検索（BM25）を RRF（Reciprocal Rank Fusion）で統合
+  - `search.py` に `rrf_merge()`・`build_fts_query()` 関数を追加
+  - `store.py` に chunks_fts 管理機能（FTS5 仮想テーブル・キーワード検索索引・行単位同期）を追加
+  - `service.py` に hybrid_search パラメータを追加。pool_size=limit*2 で両アルゴリズムの上位候補を統合
+  - `config.py` に `_bool_env()` 補助関数と `RECALL_HYBRID_SEARCH` 定数を追加
+  - `cli.py` 検索結果出力に順位番号を併記
+  - `server.py` memory_search ツール説明文を更新
+
+### How it works
+
+- ベクトル検索は意味的に近いが語彙が一致しない文を捕捉
+- キーワード検索は固有名詞・型番のような表記ゆれの少ない語を完全一致で取りこぼさない
+- FTS5・trigram tokenizer が使えない環境では store.fts_enabled=False により自動的にベクトル単体へ劣化
+- 後方互換性を維持：hybrid_search=False で従来と完全に同一の結果
+
+### Fixed (移植時レビューで検出・修正)
+
+- **clear_all() の FTS 例外未処理**: `recall index --all` の唯一の回復手段がクラッシュするリスク（delete-all コマンド実行の例外を try/except で catch）
+- **_init_fts でプローブ失敗時に DROP なし**: SQLITE_BUSY 等の一過性失敗から回復できない（CREATE+probe/rebuild 失敗時に DROP TABLE IF EXISTS chunks_fts して次回再試行可能に）
+
 ## [0.2.0] - 2026-07-25
 
 ### Added
