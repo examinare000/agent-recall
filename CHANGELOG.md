@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (retrospect skill)
+
+- **全文グラウンディング出力契約**: corpus バルク読み委譲時に、各教訓候補の根拠参照（秘密を含まない逐語部分文字列 30〜120字 + ファイル名）の必須添付・ungrounded 明記を指示
+- **参照の機械解決**: recall `memory_search`/`memory_get` で参照部分文字列の実在確認 → `recall:<chunk_id>` への解決。解決不能な参照は参照単位で落とす
+- **unindexed vs search-failure の二分**: 参照先セッションの索引被覆確認（sqlite3 chunk 数照合）により、「索引の限界」（unindexed）と「捏造疑い」（search-failure）を区別。信頼度降格は search-failure のみ
+- **trial-log 収集源**: `TRIALLOG` パス定義追加。作業リポジトリ群のルート配下の `*/docs/trial-log/*.md` の棄却・失敗エントリを取り込み、path:line で直接参照。unindexed/search-failure 二分は corpus 由来の参照にのみ適用
+- **検証済み参照の Step 3 受け渡し**: 候補群は Step 2 の検証済み根拠参照（`recall:<chunk_id>` / trial-log path:line）付きで `retrospective-analyst` に委譲。出現回数カウントは検証済み参照・セッションID のみ対象
+- **アンチパターン強化**: 機械解決を通さない参照の evidence 転記禁止・秘密情報を含む検証用引用選択禁止の 2 項目を禁止セクションに追加
+
 ## [0.3.1] - 2026-07-25
 
 ### Added
