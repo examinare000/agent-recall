@@ -118,27 +118,55 @@ class TestIncremental:
         assert stats.skipped_files == 0
         assert store.get_meta("model") == "new-model"
 
-    def test_isolates_unreadable_file_and_still_indexes_the_rest(self, tmp_path, store):
+    def test_isolates_unreadable_file_and_still_indexes_the_rest(
+        self, tmp_path, store, monkeypatch
+    ):
         """distill/extract.py と同様、1ファイルの OSError(権限エラー等)で
         索引全体が止まらないことを確認する。読めなかった件数は errors に集計する。
+        chmod(0o000) は Windows では機能しないため、read_text の差し替えで再現する。
         """
         proj_dir = tmp_path / "proj"
         proj_dir.mkdir()
         _write_jsonl(proj_dir / "a.jsonl", ["質問1"])
         unreadable = proj_dir / "unreadable.jsonl"
         _write_jsonl(unreadable, ["質問2"])
-        unreadable.chmod(0o000)
+        original_read_text = Path.read_text
+
+        def failing_read_text(path: Path, *args, **kwargs):
+            if path.name == unreadable.name:
+                raise PermissionError(f"simulated unreadable file: {path}")
+            return original_read_text(path, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "read_text", failing_read_text)
         embedder = FakeEmbedder()
 
-        try:
-            stats = index_corpus(tmp_path, store, embedder)
-        finally:
-            unreadable.chmod(0o644)  # tmp_path のクリーンアップができるように必ず戻す
+        stats = index_corpus(tmp_path, store, embedder)
 
         assert stats.indexed_files == 1
         assert stats.errors == 1
         ids, _ = store.load_all_vectors()
         assert ids == ["proj/a.jsonl#0"]
+
+    def test_source_file_uses_posix_separator_for_nested_files(self, tmp_path, store):
+        """source_file（chunk の source_file 列 / file_state のキー）が POSIX "/" 区切りで
+        保存されることを固定する。
+
+        背景: shelf での既知バグでは Windows の "\\" 区切りが DB に永続化され、
+        prune 誤動作と citation の source 不一致を引き起こした。本プロジェクトでは
+        as_posix() による正規化で予防的に対応している。
+        """
+        proj_dir = tmp_path / "proj"
+        sub_dir = proj_dir / "sub"
+        sub_dir.mkdir(parents=True)
+        _write_jsonl(sub_dir / "a.jsonl", ["質問1"])
+        embedder = FakeEmbedder()
+
+        index_corpus(tmp_path, store, embedder)
+
+        chunk = store.get_chunk("proj/sub/a.jsonl#0")
+        assert chunk is not None
+        assert chunk["source_file"] == "proj/sub/a.jsonl"
+        assert store.get_file_state("proj/sub/a.jsonl") is not None
 
     def test_prunes_chunks_for_files_removed_from_disk(self, tmp_path, store):
         proj_dir = tmp_path / "proj"
