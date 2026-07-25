@@ -416,3 +416,20 @@ class TestFtsMigration:
             store2.close()
 
         assert [chunk_id for chunk_id, _score in hits] == ["a.jsonl#0"]
+
+
+class TestBusyTimeout:
+    """SQLite 同時アクセス時のロック競合への耐性テスト。"""
+
+    def test_busy_timeout_pragma_is_set_on_connection(self, tmp_path):
+        # Store 初期化時に PRAGMA busy_timeout が正しく設定されていることを確認。
+        # MCP サーバと別プロセス CLI が同一 DB ファイルへ同時アクセスする構成で、
+        # 単発ロックが例外化されるのを防ぎ、SQLite 自身に自動リトライさせる。
+        db_path = tmp_path / "recall.db"
+        store = Store(str(db_path))
+        try:
+            # PRAGMA busy_timeout（引数なしのクエリ形式）で現在の設定値を確認。
+            result = store._conn.execute("PRAGMA busy_timeout").fetchone()
+            assert result[0] == Store._BUSY_TIMEOUT_MS
+        finally:
+            store.close()
