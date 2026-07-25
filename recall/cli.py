@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 
+from recall import config
 from recall.config import CORPUS_DIR, DB_PATH
 from recall.indexer import index_corpus
 from recall.server import create_server
@@ -41,7 +42,7 @@ def _build_service() -> RecallService:
 
     store = Store(DB_PATH)
     embedder = FastEmbedEmbedder()
-    return RecallService(store, embedder)
+    return RecallService(store, embedder, hybrid_search=config.HYBRID_SEARCH)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -64,8 +65,8 @@ def main(argv: list[str] | None = None) -> None:
         hits = service.search(args.query, project=args.project, limit=args.limit)
         if not hits:
             print("該当なし")
-        for hit in hits:
-            print(f"[{hit.score:.3f}] {hit.id} ({hit.project})")
+        for i, hit in enumerate(hits, 1):
+            print(f"{i}. [{hit.score:.3f}] {hit.id} ({hit.project})")
             print(f"  {hit.snippet}")
     elif args.command == "serve":
         service = _build_service()
