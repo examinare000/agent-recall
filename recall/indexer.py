@@ -55,7 +55,10 @@ def index_corpus(
     existing_source_files: set[str] = set()
 
     for path in sorted(corpus_dir.rglob("*.jsonl")):
-        source_file = str(path.relative_to(corpus_dir))
+        # relative_to().as_posix(): Windows では relative_to() の結果が "\\" 区切りに
+        # なり、DB に OS 依存の source_file が永続化されて prune 誤動作や citation の
+        # source 不一致を招く（shelf の同一バグを踏襲しないための正規化）。
+        source_file = path.relative_to(corpus_dir).as_posix()
 
         try:
             stat = path.stat()

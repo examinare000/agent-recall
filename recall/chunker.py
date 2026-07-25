@@ -10,9 +10,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
-from recall.masking import SKIP_PREFIXES, extract_text, is_human_prompt, mask
+from recall.masking import MAX_CHARS, SKIP_PREFIXES, extract_text, is_human_prompt, mask
 
-MAX_CHARS = 1500
 SEPARATOR = "\n\n---\n\n"
 
 

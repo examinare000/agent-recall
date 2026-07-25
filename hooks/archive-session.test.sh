@@ -217,6 +217,53 @@ uv_calls="$(cat "$uv_log" 2>/dev/null || true)"
 assert_contains "RECALL_DIR優先: uvがRECALL_DIR配下に対して起動される" \
   "$uv_calls" "--directory $recall_dir recall index"
 
+echo "=== archive-session.sh: 入力・冪等性 ==="
+
+# --- (f) 壊れた payload では corpus 配下が作られない（fail-open） ---
+case_dir="$WORKDIR/case-f"
+home_dir="$case_dir/home"
+mkdir -p "$home_dir"
+broken_payload='{not valid json'
+rc=0
+printf '%s' "$broken_payload" | HOME="$home_dir" "$BASH_BIN" "$ARCHIVE_SESSION_SH" >/dev/null 2>&1 || rc=$?
+assert_rc "壊れたJSON: exit 0（fail-open）" 0 "$rc"
+corpus_base="$home_dir/.claude/corpus/claude-code"
+if [ ! -d "$corpus_base" ]; then
+  echo "PASS: 壊れた payload では corpus 配下が作られない"
+  pass=$((pass + 1))
+else
+  echo "FAIL: 壊れた payload なのに corpus 配下が作られた"
+  fail=$((fail + 1))
+fi
+
+# --- (g) 同名 transcript の再アーカイブで最新内容へ上書きされる（冪等性） ---
+case_dir="$WORKDIR/case-g"
+home_dir="$case_dir/home"
+proj_dir_g="$home_dir/.claude/projects/testproj-g"
+mkdir -p "$proj_dir_g"
+transcript_g="$proj_dir_g/uuid-g.jsonl"
+corpus_file="$home_dir/.claude/corpus/claude-code/testproj-g/uuid-g.jsonl"
+printf '{"session_id":"sess-g","updated":false}\n' > "$transcript_g"
+printf '{"transcript_path":"%s","session_id":"sess-g","cwd":"/tmp"}' "$transcript_g" | \
+  HOME="$home_dir" "$BASH_BIN" "$ARCHIVE_SESSION_SH" >/dev/null 2>&1
+if grep -qF '"updated":false' "$corpus_file"; then
+  echo "PASS: 初回アーカイブで内容がコピーされる"
+  pass=$((pass + 1))
+else
+  echo "FAIL: 初回アーカイブが失敗した"
+  fail=$((fail + 1))
+fi
+printf '{"session_id":"sess-g","updated":true}\n' > "$transcript_g"
+printf '{"transcript_path":"%s","session_id":"sess-g","cwd":"/tmp"}' "$transcript_g" | \
+  HOME="$home_dir" "$BASH_BIN" "$ARCHIVE_SESSION_SH" >/dev/null 2>&1
+if grep -qF '"updated":true' "$corpus_file" && ! grep -qF '"updated":false' "$corpus_file"; then
+  echo "PASS: 再アーカイブでコピー先が最新内容に上書きされる（冪等性）"
+  pass=$((pass + 1))
+else
+  echo "FAIL: 再アーカイブ後もコピー先が古い内容のまま（冪等性違反）"
+  fail=$((fail + 1))
+fi
+
 echo "----"
 echo "pass=$pass fail=$fail"
 [ "$fail" -eq 0 ]

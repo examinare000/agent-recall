@@ -22,6 +22,11 @@ HERE = Path(__file__).resolve().parent
 OUT_DIR = HERE / "out"
 STATE = HERE / ".extract-state.json"
 
+# 1発話あたりの最大文字数（超過は切り詰め）。recall/chunker.py が同じ
+# 切り詰め・マスク規約を共有するため、recall/masking.py 経由で
+# この値を再エクスポートする（単一情報源化。目視同期での drift を防ぐ）。
+MAX_CHARS = 1500
+
 # 人間の発話ではない=除外するための先頭パターン
 SKIP_PREFIXES = (
     "<command-", "<local-command-", "<bash-", "<system-reminder",
@@ -68,6 +73,34 @@ def is_human_prompt(d: dict) -> bool:
     return d.get("userType") in (None, "external")
 
 
+def atomic_write_text(path: Path, text: str) -> None:
+    """path への書き込みを一時ファイル+rename で原子化する。
+
+    launchd の定期実行と手動実行が並走し得るため、固定名の .tmp は使わず
+    tempfile.mkstemp で衝突しない一時ファイル名を採る。os.replace は同一
+    ファイルシステム内でアトミックなので、書き込み途中でクラッシュしても
+    path の既存内容は無傷のまま残る。
+
+    mkstemp 由来で書き込み後のパーミッションは 0600 になる（従来の
+    write_text の 0644 から意図的に変更 — 出力は mask 漏れの機微情報を
+    含み得るローカル専用ファイルのため、絞る方向を許容する）。
+    """
+    import os
+    import tempfile
+
+    fd, tmp_name = tempfile.mkstemp(
+        dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
+    )
+    os.close(fd)
+    tmp_path = Path(tmp_name)
+    try:
+        tmp_path.write_text(text, encoding="utf-8")
+        os.replace(tmp_path, path)
+    except BaseException:
+        tmp_path.unlink(missing_ok=True)
+        raise
+
+
 def load_state():
     if STATE.exists():
         return json.loads(STATE.read_text())
@@ -79,7 +112,7 @@ def main():
     ap.add_argument("--since", default=None,
                     help="ISO timestamp。未指定なら状態ファイルの続きから")
     ap.add_argument("--all", action="store_true", help="状態を無視して全件")
-    ap.add_argument("--max-chars", type=int, default=1500,
+    ap.add_argument("--max-chars", type=int, default=MAX_CHARS,
                     help="1発話の最大文字数（超過は切り詰め）")
     args = ap.parse_args()
 
@@ -137,10 +170,10 @@ def main():
             lines.append(f"\n## {head}\n")
             cur = head
         lines.append(f"- `{ts[:16]}` {text}")
-    out.write_text("\n".join(lines), encoding="utf-8")
+    atomic_write_text(out, "\n".join(lines))
 
     if not args.all and max_ts:
-        STATE.write_text(json.dumps({"last_ts": max_ts}, ensure_ascii=False))
+        atomic_write_text(STATE, json.dumps({"last_ts": max_ts}, ensure_ascii=False))
 
     print(f"wrote {out}  ({len(rows)} prompts, until {max_ts or 'END'})")
 

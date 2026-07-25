@@ -1,10 +1,11 @@
-"""秘密文字列マスクの単一ソース。
+"""秘密文字列マスク・切り詰め規約の単一ソース。
 
 なぜ importlib で distill/extract.py を直接読み込むのか:
-mask/is_human_prompt/extract_text のロジックを recall 側で再実装すると、
-将来どちらかだけが更新されて基準が drift する（=マスク漏れ）リスクがある。
-extract.py は改変禁止の既存資産なので、モジュールとして読み込んで
-再エクスポートすることで「ロジックの出どころは常に1つ」を保証する。
+mask/is_human_prompt/extract_text/MAX_CHARS のロジックと定数を recall 側で
+再実装すると、将来どちらかだけが更新されて基準が drift する（=マスク漏れや
+切り詰め長のずれ）リスクがある。extract.py を単一ソースとし、モジュールとして
+読み込んで再エクスポートすることで「ロジック・定数の出どころは常に1つ」を
+保証する（extract.py 側の改変は本モジュール経由の全消費者に自動で波及する）。
 """
 from __future__ import annotations
 
@@ -30,3 +31,4 @@ mask = _ext.mask
 is_human_prompt = _ext.is_human_prompt
 extract_text = _ext.extract_text
 SKIP_PREFIXES = _ext.SKIP_PREFIXES
+MAX_CHARS = _ext.MAX_CHARS
