@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **クォート付き複数語秘密値の過少マスク**: distill/extract.py の汎用 password|token|... regex の値パターンをダブル/シングルクォート文字列全体優先へ更新し、`password: "hunter 2 with spaces"` のようなクォート内複数語が先頭トークンのみしかマスクされない欠陥を解消
+  - 既知の制限: JSON キー形式 `"password": "..."` はクォートがラベルに包まれるため新旧とも未マスク（CHANGELOG 記載）
+  - 既知の制限: 閉じクォート直後が非空白（`,` `)` `}` `;`）の場合は旧実装と同じ先頭トークンのみの劣化にとどまる（短勝ちマッチ再発防止と引き換え）
+
 ## [0.4.0] - 2026-07-25
 
 ### Added (retrospect skill)
