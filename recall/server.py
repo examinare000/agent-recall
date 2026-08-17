@@ -6,13 +6,13 @@
 """
 from __future__ import annotations
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 
 from recall.service import RecallService
 
 
-def create_server(service: RecallService) -> FastMCP:
-    mcp = FastMCP("recall")
+def create_server(service: RecallService) -> MCPServer:
+    mcp = MCPServer("recall")
 
     @mcp.tool()
     def memory_search(query: str, project: str | None = None, limit: int = 5) -> list[dict]:
