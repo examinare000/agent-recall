@@ -55,7 +55,12 @@ class Store:
         # DB_PATH の親ディレクトリを必要時に作成する（":memory:" はファイルではないのでスキップ）。
         if str(db_path) != ":memory:":
             Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(str(db_path))
+        # mcp 2.0.0 の MCPServer はツール呼び出しを Store 生成スレッドとは別の
+        # ワーカースレッドから同期実行するため、デフォルトの同一スレッド制約では
+        # "SQLite objects created in a thread can only be used in that same
+        # thread" で落ちる。呼び出しは逐次（非並行）なので check_same_thread=False
+        # による安全性の低下はない。
+        self._conn = sqlite3.connect(str(db_path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         # 同時アクセスによる一時的なロック競合の頻度を下げる（上の _BUSY_TIMEOUT_MS
         # コメント参照）。foreign_keys より前に設定しても問題ない（両方とも

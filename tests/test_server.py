@@ -1,7 +1,8 @@
 """MCP ツール memory_search / memory_get の単体テスト。
 
-FastMCP.call_tool() は (content_blocks, {"result": <戻り値>}) を返すため、
-"result" 側で戻り値の型・中身を検証する。ネットワーク・stdio 起動は行わない。
+MCPServer.call_tool()（mcp 2.0.0, 旧 FastMCP）は CallToolResult を返す。
+structured_content["result"] 側で戻り値の型・中身を検証する。
+ネットワーク・stdio 起動は行わない。
 """
 from __future__ import annotations
 
@@ -36,8 +37,8 @@ class TestMemorySearch:
         service = _service_with_one_chunk()
         server = create_server(service)
 
-        _, structured = _call(server, "memory_search", {"query": "本文"})
-        hits = structured["result"]
+        result = _call(server, "memory_search", {"query": "本文"})
+        hits = result.structured_content["result"]
 
         assert len(hits) == 1
         hit = hits[0]
@@ -52,8 +53,8 @@ class TestMemoryGet:
         service = _service_with_one_chunk(text="全文はここに入る")
         server = create_server(service)
 
-        _, structured = _call(server, "memory_get", {"id": "a.jsonl#0"})
-        got = structured["result"]
+        result = _call(server, "memory_get", {"id": "a.jsonl#0"})
+        got = result.structured_content["result"]
 
         assert got["id"] == "a.jsonl#0"
         assert got["text"] == "全文はここに入る"
@@ -62,9 +63,9 @@ class TestMemoryGet:
         service = _service_with_one_chunk()
         server = create_server(service)
 
-        _, structured = _call(server, "memory_get", {"id": "does-not-exist"})
+        result = _call(server, "memory_get", {"id": "does-not-exist"})
 
-        assert structured["result"] is None
+        assert result.structured_content["result"] is None
 
 
 @pytest.mark.parametrize("tool_name", ["memory_search", "memory_get"])
