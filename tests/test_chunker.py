@@ -1,4 +1,5 @@
 """chunker.chunk_session の純粋関数テスト（ファイル/DB 一切なし）。"""
+
 from __future__ import annotations
 
 import importlib
@@ -89,8 +90,13 @@ class TestIgnoredLines:
     def test_ignores_tool_use_result_lines(self):
         lines = [
             _line(_human("質問", "2026-01-01T00:00:00Z")),
-            _line({"type": "user", "toolUseResult": {"foo": "bar"},
-                   "message": {"role": "user", "content": "tool output"}}),
+            _line(
+                {
+                    "type": "user",
+                    "toolUseResult": {"foo": "bar"},
+                    "message": {"role": "user", "content": "tool output"},
+                }
+            ),
             _line(_assistant("応答")),
         ]
         chunks = chunk_session(lines, "proj/a.jsonl")

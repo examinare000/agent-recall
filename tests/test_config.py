@@ -12,6 +12,7 @@ REPO_ROOT はディレクトリ階層の深さに対する仮定（`parent` の�
 簡単に壊れる。EXTRACT_PY_PATH 等はこの値から導出されるため、実ファイルへ
 正しく到達できることを固定して drift を検出する。
 """
+
 from __future__ import annotations
 
 import importlib
@@ -80,8 +81,7 @@ class TestDbPathDefault:
             m.delenv("RECALL_DB_PATH", raising=False)
             importlib.reload(config)
             assert (
-                config.DB_PATH
-                == Path.home() / ".claude" / "agent-recall" / "index" / "recall.db"
+                config.DB_PATH == Path.home() / ".claude" / "agent-recall" / "index" / "recall.db"
             )
         importlib.reload(config)  # env 復元後にモジュール状態も既定へ戻す
 

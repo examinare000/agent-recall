@@ -4,6 +4,7 @@ MCPServer.call_tool()（mcp 2.0.0, 旧 FastMCP）は CallToolResult を返す。
 structured_content["result"] 側で戻り値の型・中身を検証する。
 ネットワーク・stdio 起動は行わない。
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -21,8 +22,12 @@ def _service_with_one_chunk(text: str = "本文" * 150) -> RecallService:
     store = Store(":memory:")
     embedder = FakeEmbedder()
     chunk = Chunk(
-        id="a.jsonl#0", source_file="a.jsonl", project="proj",
-        branch="main", timestamp="2026-01-01T00:00:00Z", text=text,
+        id="a.jsonl#0",
+        source_file="a.jsonl",
+        project="proj",
+        branch="main",
+        timestamp="2026-01-01T00:00:00Z",
+        text=text,
     )
     store.upsert_chunks([chunk], embedder.embed_documents([chunk.text]))
     return RecallService(store, embedder)

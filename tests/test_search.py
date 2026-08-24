@@ -1,4 +1,5 @@
 """search.cosine_topk の純粋関数テスト。matrix/query は正規化済み前提。"""
+
 from __future__ import annotations
 
 import numpy as np
@@ -10,8 +11,8 @@ def test_ranks_closest_vector_first():
     ids = ["a", "b", "c"]
     matrix = np.array(
         [
-            [1.0, 0.0],   # a: query と直交 → score 0
-            [0.0, 1.0],   # b: query と同方向 → score 1
+            [1.0, 0.0],  # a: query と直交 → score 0
+            [0.0, 1.0],  # b: query と同方向 → score 1
             [0.0, -1.0],  # c: query と逆方向 → score -1
         ],
         dtype=np.float32,
@@ -194,8 +195,38 @@ def test_build_fts_query_caps_total_term_count_via_even_stride_sampling():
     terms = result.split(" OR ")
     # n=40, k=32 の均等ストライド添字（先頭・末尾を必ず含む）: 手計算値。
     expected_indices = [
-        0, 1, 3, 4, 5, 6, 8, 9, 10, 11, 13, 14, 15, 16, 18, 19,
-        20, 21, 23, 24, 25, 26, 28, 29, 30, 31, 33, 34, 35, 36, 38, 39,
+        0,
+        1,
+        3,
+        4,
+        5,
+        6,
+        8,
+        9,
+        10,
+        11,
+        13,
+        14,
+        15,
+        16,
+        18,
+        19,
+        20,
+        21,
+        23,
+        24,
+        25,
+        26,
+        28,
+        29,
+        30,
+        31,
+        33,
+        34,
+        35,
+        36,
+        38,
+        39,
     ]
     assert len(terms) == 32
     assert terms == [f'"{words[i]}"' for i in expected_indices]

@@ -4,6 +4,7 @@ Embedder を Protocol にして注入可能にすることで、ドメイン(Rec
 「モデルが何か」を一切知らずに済む。テストは FakeEmbedder（tests側）に差し替え、
 ネットワーク・モデルダウンロードなしで全経路を検証できる。
 """
+
 from __future__ import annotations
 
 from typing import Protocol

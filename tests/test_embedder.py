@@ -3,6 +3,7 @@
 FastEmbedEmbedder 自体は ONNX モデルの実ダウンロードを伴うため、
 ここでは検証せず実データスモーク（README/報告）で確認する（設計書 §14）。
 """
+
 from __future__ import annotations
 
 import numpy as np

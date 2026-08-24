@@ -3,6 +3,7 @@
 外部 I/O（ファイル読み込み・DB・embedding）を一切持たないため、
 fixture の行リストだけで全パターンを高速に単体テストできる。
 """
+
 from __future__ import annotations
 
 import json

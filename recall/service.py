@@ -4,6 +4,7 @@ server.py と cli.py は本モジュールを呼ぶだけの薄いラッパに�
 テストでは Store(:memory:) + FakeEmbedder を注入することで、
 SQLite・ONNX という2つの揮発的依存を排してドメインロジックだけを検証できる。
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

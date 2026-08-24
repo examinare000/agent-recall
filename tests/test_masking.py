@@ -6,6 +6,7 @@
 また、値パターン修正後のクォート値マスキング（複数語のクォート文字列全体を捕捉）の
 挙動を固定する。
 """
+
 from __future__ import annotations
 
 import sys
@@ -166,18 +167,12 @@ class TestQuotedValueMasking:
         # あっても、そこまで貪欲に飲み込んで無関係な行を消してはならない。
         # 各行はそれぞれ独立して「クォート値かどうか」を判定され、閉じられない
         # 側は \S+ で先頭トークンのみマスクされ、他の行は無傷のまま残る。
-        text = (
-            'password: "start of secret\n'
-            "more stuff here\n"
-            'api_key: "closed on another line'
-        )
+        text = 'password: "start of secret\nmore stuff here\napi_key: "closed on another line'
 
         result = masking.mask(text)
 
         assert result == (
-            "password=<REDACTED> of secret\n"
-            "more stuff here\n"
-            "api_key=<REDACTED> on another line"
+            "password=<REDACTED> of secret\nmore stuff here\napi_key=<REDACTED> on another line"
         )
         assert "start" not in result
         assert "closed" not in result
@@ -190,7 +185,7 @@ class TestQuotedValueMasking:
 
         result = masking.mask(text)
 
-        assert result == 'password=<REDACTED> unterminated'
+        assert result == "password=<REDACTED> unterminated"
 
     def test_unquoted_single_word_value_still_masked_as_before(self) -> None:
         # クォート無しの単語値は従来どおり \S+ で1トークンだけマスクされる

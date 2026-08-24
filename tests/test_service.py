@@ -1,4 +1,5 @@
 """RecallService: Store+Embedder を束ねた search()/get() の単体テスト。FakeEmbedder使用。"""
+
 from __future__ import annotations
 
 import pytest
@@ -11,8 +12,12 @@ from tests.fakes import FakeEmbedder
 
 def _chunk(id_, source_file, project, text):
     return Chunk(
-        id=id_, source_file=source_file, project=project,
-        branch="main", timestamp="2026-01-01T00:00:00Z", text=text,
+        id=id_,
+        source_file=source_file,
+        project=project,
+        branch="main",
+        timestamp="2026-01-01T00:00:00Z",
+        text=text,
     )
 
 
@@ -25,10 +30,12 @@ def store():
 
 class TestSearch:
     def test_ranks_semantically_closest_chunk_first(self, store):
-        embedder = FakeEmbedder(known={
-            "テストの書き方": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-            "ペットの飼い方": [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        })
+        embedder = FakeEmbedder(
+            known={
+                "テストの書き方": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                "ペットの飼い方": [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            }
+        )
         chunks = [
             _chunk("a#0", "a.jsonl", "proj", "テストの書き方"),
             _chunk("b#0", "b.jsonl", "proj", "ペットの飼い方"),
@@ -89,11 +96,13 @@ class TestHybridSearch:
         # ベクトル類似度だけで見ると "b#0" が1位になるよう既知ベクトルを仕込みつつ、
         # クエリ語 "E1234" を本文に含む "a#0" だけがキーワード側でも一致することで、
         # RRF統合後は両方のランキングに顔を出す a#0 が単独1位の b#0 を上回ることを検証する。
-        embedder = FakeEmbedder(known={
-            "E1234": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-            "汎用的な内容の文章です": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-            "E1234 エラーコードの対処法": [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        })
+        embedder = FakeEmbedder(
+            known={
+                "E1234": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                "汎用的な内容の文章です": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                "E1234 エラーコードの対処法": [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            }
+        )
         chunks = [
             _chunk("b#0", "b.jsonl", "proj", "汎用的な内容の文章です"),
             _chunk("a#0", "a.jsonl", "proj", "E1234 エラーコードの対処法"),
@@ -107,11 +116,13 @@ class TestHybridSearch:
         assert [h.id for h in hits] == ["a#0"]
 
     def test_falls_back_to_vector_only_ranking_when_fts_disabled(self, store):
-        embedder = FakeEmbedder(known={
-            "E1234": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-            "汎用的な内容の文章です": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-            "E1234 エラーコードの対処法": [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        })
+        embedder = FakeEmbedder(
+            known={
+                "E1234": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                "汎用的な内容の文章です": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                "E1234 エラーコードの対処法": [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            }
+        )
         chunks = [
             _chunk("b#0", "b.jsonl", "proj", "汎用的な内容の文章です"),
             _chunk("a#0", "a.jsonl", "proj", "E1234 エラーコードの対処法"),
@@ -128,11 +139,13 @@ class TestHybridSearch:
         assert hybrid_hits[0].score == vector_only_hits[0].score
 
     def test_hybrid_search_false_matches_traditional_vector_only_ranking(self, store):
-        embedder = FakeEmbedder(known={
-            "E1234": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-            "汎用的な内容の文章です": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-            "E1234 エラーコードの対処法": [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        })
+        embedder = FakeEmbedder(
+            known={
+                "E1234": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                "汎用的な内容の文章です": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                "E1234 エラーコードの対処法": [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            }
+        )
         chunks = [
             _chunk("b#0", "b.jsonl", "proj", "汎用的な内容の文章です"),
             _chunk("a#0", "a.jsonl", "proj", "E1234 エラーコードの対処法"),
@@ -163,14 +176,16 @@ class TestHybridSearch:
         # pool_size = limit*2 = 4 の外側(5件中コサイン最下位)に締め出された
         # チャンクが、キーワード一致のみで結果に混ざり込むケース。ベクトル候補に
         # 一度も現れないため、score には cosine 由来の値が無く 0.0 になることを検証する。
-        embedder = FakeEmbedder(known={
-            "KEYWORDXYZ": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-            "vec1文書": [8.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-            "vec2文書": [4.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-            "vec3文書": [2.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-            "vec4文書": [1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-            "KEYWORDXYZ に関する文書": [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        })
+        embedder = FakeEmbedder(
+            known={
+                "KEYWORDXYZ": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                "vec1文書": [8.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                "vec2文書": [4.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                "vec3文書": [2.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                "vec4文書": [1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                "KEYWORDXYZ に関する文書": [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            }
+        )
         chunks = [
             _chunk("a1", "a.jsonl", "proj", "vec1文書"),
             _chunk("a2", "a.jsonl", "proj", "vec2文書"),

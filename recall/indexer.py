@@ -3,6 +3,7 @@
 chunker(純粋)・store(境界)・embedder(境界) はそれぞれ単体テスト済みなので、
 ここでは「いつ再チャンク/再埋め込みするか」という増分判定の分岐だけに責務を絞る。
 """
+
 from __future__ import annotations
 
 import sys
