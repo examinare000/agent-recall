@@ -1,4 +1,5 @@
 """indexer.index_corpus の増分索引化テスト。tmp_path + Store(:memory:) + FakeEmbedder のみ使用。"""
+
 from __future__ import annotations
 
 import json
@@ -16,17 +17,30 @@ from tests.fakes import FakeEmbedder
 def _write_jsonl(path: Path, human_texts: list[str]) -> None:
     lines = []
     for i, text in enumerate(human_texts):
-        lines.append(json.dumps({
-            "type": "user",
-            "timestamp": f"2026-01-01T00:0{i}:00Z",
-            "gitBranch": "main",
-            "message": {"role": "user", "content": text},
-        }, ensure_ascii=False))
-        lines.append(json.dumps({
-            "type": "assistant",
-            "isSidechain": False,
-            "message": {"role": "assistant", "content": [{"type": "text", "text": f"回答{i}"}]},
-        }, ensure_ascii=False))
+        lines.append(
+            json.dumps(
+                {
+                    "type": "user",
+                    "timestamp": f"2026-01-01T00:0{i}:00Z",
+                    "gitBranch": "main",
+                    "message": {"role": "user", "content": text},
+                },
+                ensure_ascii=False,
+            )
+        )
+        lines.append(
+            json.dumps(
+                {
+                    "type": "assistant",
+                    "isSidechain": False,
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": f"回答{i}"}],
+                    },
+                },
+                ensure_ascii=False,
+            )
+        )
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
@@ -91,8 +105,16 @@ class TestIncremental:
         index_corpus(tmp_path, store, embedder)
         # 本来ならスキップされる状態であることを、DBの中身を直接壊して確認できるようにする
         store.upsert_chunks(
-            [Chunk(id="proj/a.jsonl#0", source_file="proj/a.jsonl", project="proj",
-                   branch="x", timestamp="x", text="改ざんされた本文")],
+            [
+                Chunk(
+                    id="proj/a.jsonl#0",
+                    source_file="proj/a.jsonl",
+                    project="proj",
+                    branch="x",
+                    timestamp="x",
+                    text="改ざんされた本文",
+                )
+            ],
             embedder.embed_documents(["改ざんされた本文"]),
         )
 

@@ -1,4 +1,5 @@
 """Store の往復（insert/read/delete）と file_state/meta の単体テスト。:memory: SQLite のみ使用。"""
+
 from __future__ import annotations
 
 import sqlite3
@@ -74,8 +75,10 @@ class TestChunkRoundTrip:
 
     def test_load_all_vectors_filters_by_project_when_given(self, store):
         store.upsert_chunks(
-            [_chunk(id_="a.jsonl#0", source_file="a.jsonl", project="proj-a"),
-             _chunk(id_="b.jsonl#0", source_file="b.jsonl", project="proj-b")],
+            [
+                _chunk(id_="a.jsonl#0", source_file="a.jsonl", project="proj-a"),
+                _chunk(id_="b.jsonl#0", source_file="b.jsonl", project="proj-b"),
+            ],
             np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32),
         )
 
@@ -86,8 +89,10 @@ class TestChunkRoundTrip:
 
     def test_delete_by_source_file_removes_its_chunks_only(self, store):
         store.upsert_chunks(
-            [_chunk(id_="a.jsonl#0", source_file="a.jsonl"),
-             _chunk(id_="b.jsonl#0", source_file="b.jsonl")],
+            [
+                _chunk(id_="a.jsonl#0", source_file="a.jsonl"),
+                _chunk(id_="b.jsonl#0", source_file="b.jsonl"),
+            ],
             np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32),
         )
 
@@ -118,8 +123,10 @@ class TestFileState:
 class TestPrune:
     def test_prune_missing_removes_chunks_and_file_state_not_in_set(self, store):
         store.upsert_chunks(
-            [_chunk(id_="a.jsonl#0", source_file="a.jsonl"),
-             _chunk(id_="b.jsonl#0", source_file="b.jsonl")],
+            [
+                _chunk(id_="a.jsonl#0", source_file="a.jsonl"),
+                _chunk(id_="b.jsonl#0", source_file="b.jsonl"),
+            ],
             np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32),
         )
         store.set_file_state("a.jsonl", mtime=1.0, size=1, model="m")
@@ -198,9 +205,7 @@ class TestKeywordTopK:
             _embeddings(1),
         )
 
-        hits = store.keyword_topk(
-            build_fts_query("量子力学の基礎について教えてください"), limit=10
-        )
+        hits = store.keyword_topk(build_fts_query("量子力学の基礎について教えてください"), limit=10)
 
         assert [chunk_id for chunk_id, _score in hits] == ["a.jsonl#0"]
 
@@ -262,9 +267,7 @@ class TestKeywordTopK:
 
         assert store.keyword_topk("quantum", limit=10) == []
         # fts が無効でも通常の書き込み経路（upsert/delete）が壊れないことを検証する。
-        store.upsert_chunks(
-            [_chunk(id_="a.jsonl#1", text="classical mechanics")], _embeddings(1)
-        )
+        store.upsert_chunks([_chunk(id_="a.jsonl#1", text="classical mechanics")], _embeddings(1))
         store.delete_by_source_file("a.jsonl")
         ids, _ = store.load_all_vectors()
         assert ids == []
@@ -331,9 +334,7 @@ class TestFtsInitProbe:
     動作を検証する（上流コミット 1e39c86 の移植）。
     """
 
-    def test_pre_existing_fts_table_disables_when_probe_fails(
-        self, tmp_path, monkeypatch, caplog
-    ):
+    def test_pre_existing_fts_table_disables_when_probe_fails(self, tmp_path, monkeypatch, caplog):
         db_path = tmp_path / "recall.db"
         store1 = Store(str(db_path))  # 通常起動で chunks_fts を作成しておく(テーブル既存化)
         store1.close()
@@ -353,9 +354,7 @@ class TestFtsInitProbe:
         finally:
             store2.close()
 
-    def test_probe_failure_drops_fts_table_for_retry_on_next_open(
-        self, tmp_path, monkeypatch
-    ):
+    def test_probe_failure_drops_fts_table_for_retry_on_next_open(self, tmp_path, monkeypatch):
         # プローブ失敗時に chunks_fts を DROP して、次回オープンで再作成・バックフィルを
         # 実行できるようにする（SQLITE_BUSY 等の一過性失敗から回復する手段）。
         # バックフィルが必要な移行前 DB シナリオ: chunks は生存・chunks_fts は不在。
@@ -399,9 +398,7 @@ class TestFtsInitProbe:
 class TestFtsMigration:
     """旧スキーマ（chunks_fts なし）DB を再オープンした際の一度きりのバックフィル。"""
 
-    def test_reopening_db_with_pre_existing_chunks_but_no_fts_table_backfills_once(
-        self, tmp_path
-    ):
+    def test_reopening_db_with_pre_existing_chunks_but_no_fts_table_backfills_once(self, tmp_path):
         db_path = tmp_path / "recall.db"
         store1 = Store(str(db_path))
         store1.upsert_chunks([_chunk(text="quantum entanglement")], _embeddings(1))

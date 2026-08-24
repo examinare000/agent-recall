@@ -9,6 +9,7 @@
 ノイズ（skill/command 注入、ポリシー、サブエージェント内部、tool結果）は除外し、
 資格情報らしき文字列はマスクする。蒸留(=嗜好抽出)は別途 Claude が SKILL.md 手順で行う。
 """
+
 from __future__ import annotations
 
 import argparse
@@ -29,17 +30,25 @@ MAX_CHARS = 1500
 
 # 人間の発話ではない=除外するための先頭パターン
 SKIP_PREFIXES = (
-    "<command-", "<local-command-", "<bash-", "<system-reminder",
-    "<user-prompt-submit-hook", "Base directory for this skill",
-    "## Policy", "あなたは", "**既にレビューは完了",
-    "Caveat:", "<attachment", "<task-",
+    "<command-",
+    "<local-command-",
+    "<bash-",
+    "<system-reminder",
+    "<user-prompt-submit-hook",
+    "Base directory for this skill",
+    "## Policy",
+    "あなたは",
+    "**既にレビューは完了",
+    "Caveat:",
+    "<attachment",
+    "<task-",
     "[Request interrupted",
 )
 # 機微情報マスク（簡易）
 SECRET_RES = [
-    (re.compile(r'(sk-[A-Za-z0-9]{12,})'), '<REDACTED-KEY>'),
-    (re.compile(r'(gh[pousr]_[A-Za-z0-9]{20,})'), '<REDACTED-TOKEN>'),
-    (re.compile(r'(AKIA[0-9A-Z]{12,})'), '<REDACTED-AWS>'),
+    (re.compile(r"(sk-[A-Za-z0-9]{12,})"), "<REDACTED-KEY>"),
+    (re.compile(r"(gh[pousr]_[A-Za-z0-9]{20,})"), "<REDACTED-TOKEN>"),
+    (re.compile(r"(AKIA[0-9A-Z]{12,})"), "<REDACTED-AWS>"),
     # 値パターンはダブル/シングルクォート文字列全体（内部の \" \' エスケープを
     # 許容）を \S+ より優先して試す。`password: "hunter 2 with spaces"` の
     # ような複数語のクォート値が先頭1トークンだけしかマスクされない過少マスク
@@ -53,12 +62,14 @@ SECRET_RES = [
     # 3連続クォートのように値が空/複数個のクォート文字で始まる入力で「早期に
     # 閉じた」と誤認して後続語を露出させる短勝ちマッチを弾き、\S+ フォールバック
     # 側で旧実装（\S+ のみ）と同等以上の安全性を保つため。
-    (re.compile(
-        r'(?i)(password|passwd|secret|api[_-]?key|token)\s*[:=]\s*'
-        r'(?:"(?:\\.|[^"\\\n])*"(?!\S)|\'(?:\\.|[^\'\\\n])*\'(?!\S)|\S+)'
-    ), r'\1=<REDACTED>'),
-    (re.compile(r'eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{6,}'),
-     '<REDACTED-JWT>'),
+    (
+        re.compile(
+            r"(?i)(password|passwd|secret|api[_-]?key|token)\s*[:=]\s*"
+            r'(?:"(?:\\.|[^"\\\n])*"(?!\S)|\'(?:\\.|[^\'\\\n])*\'(?!\S)|\S+)'
+        ),
+        r"\1=<REDACTED>",
+    ),
+    (re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{6,}"), "<REDACTED-JWT>"),
 ]
 
 
@@ -72,8 +83,9 @@ def extract_text(content) -> str:
     if isinstance(content, str):
         return content
     if isinstance(content, list):
-        parts = [p.get("text", "") for p in content
-                 if isinstance(p, dict) and p.get("type") == "text"]
+        parts = [
+            p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") == "text"
+        ]
         return "\n".join(parts)
     return ""
 
@@ -81,9 +93,9 @@ def extract_text(content) -> str:
 def is_human_prompt(d: dict) -> bool:
     if d.get("type") != "user":
         return False
-    if "toolUseResult" in d:           # tool結果
+    if "toolUseResult" in d:  # tool結果
         return False
-    if d.get("isSidechain"):           # サブエージェント内部
+    if d.get("isSidechain"):  # サブエージェント内部
         return False
     return d.get("userType") in (None, "external")
 
@@ -103,9 +115,7 @@ def atomic_write_text(path: Path, text: str) -> None:
     import os
     import tempfile
 
-    fd, tmp_name = tempfile.mkstemp(
-        dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
-    )
+    fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
     os.close(fd)
     tmp_path = Path(tmp_name)
     try:
@@ -124,17 +134,17 @@ def load_state():
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--since", default=None,
-                    help="ISO timestamp。未指定なら状態ファイルの続きから")
+    ap.add_argument("--since", default=None, help="ISO timestamp。未指定なら状態ファイルの続きから")
     ap.add_argument("--all", action="store_true", help="状態を無視して全件")
-    ap.add_argument("--max-chars", type=int, default=MAX_CHARS,
-                    help="1発話の最大文字数（超過は切り詰め）")
+    ap.add_argument(
+        "--max-chars", type=int, default=MAX_CHARS, help="1発話の最大文字数（超過は切り詰め）"
+    )
     args = ap.parse_args()
 
     state = load_state()
     since = "" if args.all else (args.since or state.get("last_ts", ""))
 
-    rows = []           # (timestamp, project, branch, text)
+    rows = []  # (timestamp, project, branch, text)
     max_ts = since
     for f in glob.glob(str(PROJECTS / "**" / "*.jsonl"), recursive=True):
         try:
@@ -161,7 +171,7 @@ def main():
                         continue
                     text = mask(text)
                     if len(text) > args.max_chars:
-                        text = text[:args.max_chars] + " …(truncated)"
+                        text = text[: args.max_chars] + " …(truncated)"
                     proj = Path(f).parent.name
                     branch = d.get("gitBranch", "") or "-"
                     rows.append((ts, proj, branch, text))
@@ -174,10 +184,11 @@ def main():
     until = (max_ts or "all")[:10] or "all"
     out = OUT_DIR / f"digest-{until}.md"
 
-    lines = [f"# 発話ダイジェスト (since={since or 'BEGIN'} → {max_ts or 'END'})",
-             f"\n抽出件数: {len(rows)} 発話\n",
-             ("蒸留手順は distill/SKILL.md を参照。"
-              "下記はノイズ除去済みの人間発話のみ。\n")]
+    lines = [
+        f"# 発話ダイジェスト (since={since or 'BEGIN'} → {max_ts or 'END'})",
+        f"\n抽出件数: {len(rows)} 発話\n",
+        ("蒸留手順は distill/SKILL.md を参照。下記はノイズ除去済みの人間発話のみ。\n"),
+    ]
     cur = None
     for ts, proj, branch, text in rows:
         head = f"{proj} [{branch}]"

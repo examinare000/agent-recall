@@ -4,6 +4,7 @@
 実行されるため、フックによる自動注入と違って受動的なトークンコストがゼロになる
 （設計書 §0 のスコープ方針）。
 """
+
 from __future__ import annotations
 
 from mcp.server import MCPServer

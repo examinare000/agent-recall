@@ -1,4 +1,5 @@
 """cli.build_parser の引数解析テスト（実 Store/Embedder を構築しない純粋な部分のみ）。"""
+
 from __future__ import annotations
 
 from recall.cli import build_parser

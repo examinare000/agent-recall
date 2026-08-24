@@ -1,4 +1,5 @@
 """is_human_prompt / extract_text の再エクスポート仕様テスト（extract.py 由来のロジックの確認）。"""
+
 from __future__ import annotations
 
 from recall import masking

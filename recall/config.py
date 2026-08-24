@@ -4,6 +4,7 @@ env で上書き可能にしているのは、テスト時に本物の corpus/DB
 副作用を及ぼさないようにするため（FakeEmbedder と :memory: DB を使う単体テストから、
 実データを使うスモークテストまでを同じコードパスで賄う）。
 """
+
 from __future__ import annotations
 
 import os
@@ -14,9 +15,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 CORPUS_DIR = Path(
-    os.environ.get(
-        "RECALL_CORPUS_DIR", Path.home() / ".claude" / "corpus" / "claude-code"
-    )
+    os.environ.get("RECALL_CORPUS_DIR", Path.home() / ".claude" / "corpus" / "claude-code")
 )
 # DB_PATH はコーパス本体と異なり、コーパスから毎回再構築できる派生インデックス
 # （埋め込みベクトル・チャンクのキャッシュ）だが、Claude Code プラグインとして配布する場合、

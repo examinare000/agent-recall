@@ -4,6 +4,7 @@
 ここに閉じ込めることで、RecallService や search.py は「ベクトルと ID の配列」
 という単純な形だけを扱えばよくなる（ドメインを SQLite から隔離するポート）。
 """
+
 from __future__ import annotations
 
 import logging
@@ -158,7 +159,9 @@ class Store:
         # 劣化させ、以後の呼び出しでは同じ壊れた経路を再実行しない。fts_enabled=False
         # にすることで、各メソッド冒頭の `if not self.fts_enabled: return` に自然に
         # 短絡し、警告ログもこの失敗時の1回だけで済む（毎回ログを連発しない）。
-        _logger.warning("chunks_fts の%sに失敗したためキーワード検索を無効化します: %r", context, exc)
+        _logger.warning(
+            "chunks_fts の%sに失敗したためキーワード検索を無効化します: %r", context, exc
+        )
         self.fts_enabled = False
 
     _GET_CHUNKS_BATCH_SIZE = 500  # SQLite バインドパラメータ上限を踏まえた分割単位。

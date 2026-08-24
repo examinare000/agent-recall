@@ -7,6 +7,7 @@ mask/is_human_prompt/extract_text/MAX_CHARS のロジックと定数を recall �
 読み込んで再エクスポートすることで「ロジック・定数の出どころは常に1つ」を
 保証する（extract.py 側の改変は本モジュール経由の全消費者に自動で波及する）。
 """
+
 from __future__ import annotations
 
 import importlib.util

@@ -9,6 +9,7 @@ rrf_merge/build_fts_query はベクトル検索と FTS5 キーワード検索を
 一切依存しない（sqlite3 も import しない）ため、id リスト・文字列だけで完結する
 テストが書ける。
 """
+
 from __future__ import annotations
 
 from collections.abc import Sequence

@@ -4,6 +4,7 @@
 各サブコマンドの実行(main)は実際の SQLite ファイル・ONNX モデルに触れるため、
 単体テストでは検証せずスモークテスト（実データ）で確認する（設計書 §14 と同じ理由）。
 """
+
 from __future__ import annotations
 
 import argparse
