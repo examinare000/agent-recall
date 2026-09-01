@@ -212,6 +212,8 @@ allowed-tools: AskUserQuestion, Bash, Read, Write, Edit, Glob
      - `RECALL_DB_PATH`（本コマンドでは明示的に聞いていないので、通常は書かない。将来的にカスタム化の質問を
        追加する場合のための予約列として扱う）
      - `RECALL_MODEL_NAME`（Step 3-1 でカスタム指定された場合）
+     - `RECALL_MODEL_CACHE_DIR`（fastembed のモデルキャッシュ先。既定 `~/.cache/fastembed`。
+       本コマンドでは明示的に聞いていないので、通常は書かない）
      - `RECALL_EXTRACT_PY_PATH`（Step 2-1 でカスタム指定された場合）
    - 全項目が既定のままだった場合、`config.env` は作成しない（既定 = 何も上書きしない、が正しい状態のため）。
 

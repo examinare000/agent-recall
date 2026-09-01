@@ -7,12 +7,13 @@ Embedder を Protocol にして注入可能にすることで、ドメイン(Rec
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Protocol
 
 import numpy as np
 from fastembed import TextEmbedding
 
-from recall.config import MODEL_NAME
+from recall.config import MODEL_CACHE_DIR, MODEL_NAME
 
 
 class Embedder(Protocol):
@@ -40,9 +41,11 @@ class FastEmbedEmbedder:
     ここでは呼び出しと明示的な L2 正規化だけに責務を絞る。
     """
 
-    def __init__(self, model_name: str = MODEL_NAME) -> None:
+    def __init__(self, model_name: str = MODEL_NAME, cache_dir: Path | None = None) -> None:
         self.model_name = model_name
-        self._model = TextEmbedding(model_name=model_name)
+        self._model = TextEmbedding(
+            model_name=model_name, cache_dir=str(cache_dir or MODEL_CACHE_DIR)
+        )
         self.dim = TextEmbedding.get_embedding_size(model_name)
 
     def embed_documents(self, texts: list[str]) -> np.ndarray:

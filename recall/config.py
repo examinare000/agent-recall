@@ -33,6 +33,13 @@ MODEL_NAME = os.environ.get(
 EXTRACT_PY_PATH = Path(
     os.environ.get("RECALL_EXTRACT_PY_PATH", REPO_ROOT / "distill" / "extract.py")
 )
+# fastembed の既定キャッシュ先は tempfile.gettempdir()/fastembed_cache であり $TMPDIR に依存する。
+# $TMPDIR は Claude Code のサンドボックス内外で別パスへ解決されるため、既定のままだと起動のたびに
+# ダウンロード済みモデルを見失い、ネットワーク遮断下では再ダウンロードに失敗して MCP サーバが
+# 起動できなくなる。~/.cache 配下は書き込みが許可され揮発もしないため、ここへ固定する。
+MODEL_CACHE_DIR = Path(
+    os.environ.get("RECALL_MODEL_CACHE_DIR", Path.home() / ".cache" / "fastembed")
+)
 
 
 def _bool_env(name: str, default: bool) -> bool:

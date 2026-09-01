@@ -94,6 +94,42 @@ class TestDbPathDefault:
         importlib.reload(config)
 
 
+class TestModelCacheDirDefault:
+    def test_defaults_to_dot_cache_fastembed(self, monkeypatch) -> None:
+        # fastembed の既定キャッシュ先は $TMPDIR 依存で、サンドボックス内外で別パスへ解決され
+        # モデルを見失う。~/.cache 配下へ固定することの回帰テスト。
+        with monkeypatch.context() as m:
+            m.delenv("RECALL_MODEL_CACHE_DIR", raising=False)
+            importlib.reload(config)
+            assert config.MODEL_CACHE_DIR == Path.home() / ".cache" / "fastembed"
+        importlib.reload(config)  # env 復元後にモジュール状態も既定へ戻す
+
+    def test_is_not_affected_by_tmpdir(self, monkeypatch, tmp_path) -> None:
+        # バグの本体は $TMPDIR 依存だったため、TMPDIR を動かしても既定値が動かないことを固定する。
+        with monkeypatch.context() as m:
+            m.delenv("RECALL_MODEL_CACHE_DIR", raising=False)
+            m.setenv("TMPDIR", str(tmp_path))
+            importlib.reload(config)
+            assert config.MODEL_CACHE_DIR == Path.home() / ".cache" / "fastembed"
+        importlib.reload(config)
+
+    def test_env_override_still_wins(self, monkeypatch, tmp_path) -> None:
+        with monkeypatch.context() as m:
+            m.setenv("RECALL_MODEL_CACHE_DIR", str(tmp_path / "fastembed"))
+            importlib.reload(config)
+            assert config.MODEL_CACHE_DIR == tmp_path / "fastembed"
+        importlib.reload(config)
+
+    def test_is_absolute_path(self, monkeypatch) -> None:
+        # MCP サーバはカレントディレクトリが不定の状態で起動されるため、相対パスでは
+        # 起動元によってキャッシュ先が変わってしまう。
+        with monkeypatch.context() as m:
+            m.delenv("RECALL_MODEL_CACHE_DIR", raising=False)
+            importlib.reload(config)
+            assert config.MODEL_CACHE_DIR.is_absolute()
+        importlib.reload(config)
+
+
 class TestHybridSearchConfigConstant:
     def test_defaults_to_true_when_env_unset(self, monkeypatch):
         with monkeypatch.context() as m:
