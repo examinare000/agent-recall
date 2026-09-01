@@ -35,6 +35,28 @@ EXTRACT_PY_PATH = Path(
 )
 
 
+def _resolve_model_cache_dir() -> Path:
+    """fastembed のモデルキャッシュ先を、起動時の CWD に依存しない絶対パスへ解決する。
+
+    fastembed の既定キャッシュ先は tempfile.gettempdir()/fastembed_cache であり $TMPDIR に
+    依存する。$TMPDIR は Claude Code のサンドボックス内外で別パスへ解決されるため、既定のままだと
+    起動のたびにダウンロード済みモデルを見失い、ネットワーク遮断下では再ダウンロードに失敗して
+    MCP サーバが起動できなくなる。~/.cache 配下は書き込みが許可され揮発もしないため、ここを既定にする。
+
+    env で相対パスを渡された場合も、解決基点をホームディレクトリに固定して絶対パス化する。
+    fastembed は相対 cache_dir をプロセスの CWD 基準で解決するが、MCP サーバは CWD 不定の状態で
+    起動されるため、相対パスをそのまま渡すと起動元ごとに別ディレクトリを指し、上記と同じ壊れ方をする。
+    """
+    raw = os.environ.get("RECALL_MODEL_CACHE_DIR")
+    if raw is None:
+        return Path.home() / ".cache" / "fastembed"
+    path = Path(raw).expanduser()
+    return path if path.is_absolute() else Path.home() / path
+
+
+MODEL_CACHE_DIR = _resolve_model_cache_dir()
+
+
 def _bool_env(name: str, default: bool) -> bool:
     """真偽値の env 上書きを解決する（上流 agent-shelf/shelf/config.py の方式を移植）。
 

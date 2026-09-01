@@ -94,6 +94,79 @@ class TestDbPathDefault:
         importlib.reload(config)
 
 
+class TestModelCacheDirDefault:
+    def test_defaults_to_dot_cache_fastembed(self, monkeypatch) -> None:
+        # fastembed の既定キャッシュ先は $TMPDIR 依存で、サンドボックス内外で別パスへ解決され
+        # モデルを見失う。~/.cache 配下へ固定することの回帰テスト。
+        with monkeypatch.context() as m:
+            m.delenv("RECALL_MODEL_CACHE_DIR", raising=False)
+            importlib.reload(config)
+            assert config.MODEL_CACHE_DIR == Path.home() / ".cache" / "fastembed"
+        importlib.reload(config)  # env 復元後にモジュール状態も既定へ戻す
+
+    def test_is_not_affected_by_tmpdir(self, monkeypatch, tmp_path) -> None:
+        # バグの本体は $TMPDIR 依存だったため、TMPDIR を動かしても既定値が動かないことを固定する。
+        with monkeypatch.context() as m:
+            m.delenv("RECALL_MODEL_CACHE_DIR", raising=False)
+            m.setenv("TMPDIR", str(tmp_path))
+            importlib.reload(config)
+            assert config.MODEL_CACHE_DIR == Path.home() / ".cache" / "fastembed"
+        importlib.reload(config)
+
+    def test_env_override_still_wins(self, monkeypatch, tmp_path) -> None:
+        with monkeypatch.context() as m:
+            m.setenv("RECALL_MODEL_CACHE_DIR", str(tmp_path / "fastembed"))
+            importlib.reload(config)
+            assert config.MODEL_CACHE_DIR == tmp_path / "fastembed"
+        importlib.reload(config)
+
+    def test_is_absolute_path(self, monkeypatch) -> None:
+        # MCP サーバはカレントディレクトリが不定の状態で起動されるため、相対パスでは
+        # 起動元によってキャッシュ先が変わってしまう。
+        with monkeypatch.context() as m:
+            m.delenv("RECALL_MODEL_CACHE_DIR", raising=False)
+            importlib.reload(config)
+            assert config.MODEL_CACHE_DIR.is_absolute()
+        importlib.reload(config)
+
+    def test_relative_env_override_is_anchored_to_home(self, monkeypatch) -> None:
+        # fastembed は相対 cache_dir を CWD 基準で解決するため、相対値をそのまま通すと
+        # 起動元ごとに別ディレクトリを指し、修正前と同じ壊れ方に戻る。基点をホームへ固定する。
+        with monkeypatch.context() as m:
+            m.setenv("RECALL_MODEL_CACHE_DIR", "relative-cache")
+            importlib.reload(config)
+            assert config.MODEL_CACHE_DIR == Path.home() / "relative-cache"
+            assert config.MODEL_CACHE_DIR.is_absolute()
+        importlib.reload(config)
+
+    def test_relative_env_override_is_independent_of_cwd(self, monkeypatch, tmp_path) -> None:
+        # 「異なる CWD から起動しても同じキャッシュ先に解決される」ことがこの定数の存在理由。
+        first = tmp_path / "cwd-a"
+        second = tmp_path / "cwd-b"
+        first.mkdir()
+        second.mkdir()
+
+        resolved = []
+        for cwd in (first, second):
+            with monkeypatch.context() as m:
+                m.setenv("RECALL_MODEL_CACHE_DIR", "relative-cache")
+                m.chdir(cwd)
+                importlib.reload(config)
+                resolved.append(config.MODEL_CACHE_DIR)
+        importlib.reload(config)
+
+        assert resolved[0] == resolved[1]
+
+    def test_tilde_env_override_is_expanded(self, monkeypatch) -> None:
+        # config.env は source されるシェルスクリプトだが、クォート次第で "~" が未展開のまま
+        # 渡る。展開しないと "~" という名前のディレクトリを CWD 直下に作ってしまう。
+        with monkeypatch.context() as m:
+            m.setenv("RECALL_MODEL_CACHE_DIR", "~/.cache/custom-fastembed")
+            importlib.reload(config)
+            assert config.MODEL_CACHE_DIR == Path.home() / ".cache" / "custom-fastembed"
+        importlib.reload(config)
+
+
 class TestHybridSearchConfigConstant:
     def test_defaults_to_true_when_env_unset(self, monkeypatch):
         with monkeypatch.context() as m:
