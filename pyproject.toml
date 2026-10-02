@@ -5,7 +5,7 @@ description = "corpus/claude-code/ を意味検索するための MCP サーバ�
 requires-python = ">=3.11"
 dependencies = [
     "mcp>=2.2.0",
-    "fastembed>=0.4.0",
+    "fastembed>=0.8.1",
     "numpy>=1.26",
 ]
 
