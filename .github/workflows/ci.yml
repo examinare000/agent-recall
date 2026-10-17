@@ -35,6 +35,9 @@ jobs:
       - name: weekly-distill test
         run: bash distill/weekly-distill.test.sh
 
+      - name: run-retrospect test
+        run: bash schedulers/launchd/run-retrospect.test.sh
+
   gitleaks:
     runs-on: ubuntu-latest
     steps:
