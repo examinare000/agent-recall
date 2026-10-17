@@ -7,11 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+実運用で実証済みの改善の移植を含む。
+
+### Added
+
+- **HTTP serve**: MCP サーバーを HTTP で提供するモードと `/health` エンドポイントを追加
+- **INSTRUCTIONS**: MCP サーバーに利用者向けの INSTRUCTIONS を追加
+- **proposal-triage skill**: retrospect が停止した提案を 1 件ずつ採否判断し、status に書き戻す手続き（手動起動 `/proposal-triage`）
+- **run-retrospect.test.sh**: `run-retrospect.sh` のスモークテスト（stub の `claude` のみに到達する隔離 PATH で検証）
+
+### Changed
+
+- **fastembed のモデルキャッシュ先を固定**: `~/.cache/fastembed`。相対パス指定は HOME 基準で解決（記載漏れの補完。本体は 2026-09-01 の #21 で導入済み）
+- **store の RLock 化**: 並行アクセス時の競合を避けるため、store の排他に RLock を追加
+- **retrospect skill**: 手順の詳細を `references/`（evidence-grounding / promotion-apply-policy / trial-log-freshness）へ分割し、Step 0（滞留した提案の棚卸しと `verify:` の扱い。実行は対話時のユーザー確認後のみ）と `.retrospect-summary.md` 出力を追加。rules / skill の自動マージは行わず、提案に留めてユーザーが merge する
+- **retrospective-analyst**: `maxTurns: 30` とターン予算を明記し、出現回数は検証済み参照のみ計数。description を英語 1 行へ
+- **run-retrospect.sh**: PATH 固定、`claude` が PATH に無いときの versions ディレクトリへのフォールバック、`caffeinate`、`--model opus`、プラグイン経由 MCP ツール名（`mcp__plugin_<server>_<server>__*`）の遮断を追加
+
 ### Fixed
 
+- **`sk-` キーのマスク**: Anthropic 系キー（ハイフン/アンダースコアを含む）のマスク漏れを解消。語頭の `sk-` のみ対象とし、`task-` や `risk-` 等の複合語の途中は誤マスクしない
 - **クォート付き複数語秘密値の過少マスク**: distill/extract.py の汎用 password|token|... regex の値パターンをダブル/シングルクォート文字列全体優先へ更新し、`password: "hunter 2 with spaces"` のようなクォート内複数語が先頭トークンのみしかマスクされない欠陥を解消
   - 既知の制限: JSON キー形式 `"password": "..."` はクォートがラベルに包まれるため新旧とも未マスク（CHANGELOG 記載）
   - 既知の制限: 閉じクォート直後が非空白（`,` `)` `}` `;`）の場合は旧実装と同じ先頭トークンのみの劣化にとどまる（短勝ちマッチ再発防止と引き換え）
+
+## [0.4.1] - 2026-09-09
+
+### Changed
+
+- 依存更新（mcp 2.2.0 / ruff 0.16.6）に伴う版更新
 
 ## [0.4.0] - 2026-07-25
 
