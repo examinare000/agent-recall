@@ -224,7 +224,7 @@ uv run --directory <recall-clone-dir> recall serve --http --host 127.0.0.1 --por
 
 ```bash
 curl http://127.0.0.1:8768/health
-# {"status":"ok","version":"0.4.1"}
+# {"status":"ok","version":"0.5.0"}
 ```
 
 ## [agent-shelf](https://github.com/examinare000/agent-shelf) との関係
