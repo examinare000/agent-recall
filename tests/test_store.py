@@ -430,3 +430,84 @@ class TestBusyTimeout:
             assert result[0] == Store._BUSY_TIMEOUT_MS
         finally:
             store.close()
+
+
+class TestConcurrentAccess:
+    """単一接続を複数スレッドで共有しても壊れないこと（RLock 直列化）の検証。
+
+    mcp の sync def ツールはワーカースレッドで並行実行され得るため、
+    check_same_thread=False の単一接続へ複数スレッドが同時に到達する。
+    """
+
+    def test_concurrent_search_and_get_do_not_raise_or_corrupt(self, tmp_path):
+        from concurrent.futures import ThreadPoolExecutor
+
+        from recall.service import RecallService
+        from tests.fakes import FakeEmbedder
+
+        store = Store(str(tmp_path / "recall.db"))
+        embedder = FakeEmbedder()
+        chunks = [_chunk(id_=f"a.jsonl#{i}", text=f"quantum entanglement {i}") for i in range(20)]
+        store.upsert_chunks(chunks, embedder.embed_documents([c.text for c in chunks]))
+        service = RecallService(store, embedder)
+
+        def search_then_get(i: int) -> str:
+            hits = service.search("quantum entanglement", limit=5)
+            assert hits, "並行下でも検索結果が空にならない"
+            got = service.get(f"a.jsonl#{i % 20}")
+            assert got is not None
+            return got["id"]
+
+        try:
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                ids = list(pool.map(search_then_get, range(200)))
+            # 並行読み取り後も DB が壊れていない
+            assert store._conn.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+        finally:
+            store.close()
+
+        assert ids == [f"a.jsonl#{i % 20}" for i in range(200)]
+
+    def test_public_methods_are_mutually_exclusive_across_threads(self, tmp_path):
+        # 競合を確率任せにせず決定論的に検証する: 接続の execute に sleep を挟み、
+        # 2 スレッドが同時に接続内へ入れば検出できるようにする。
+        import threading
+        import time
+        from concurrent.futures import ThreadPoolExecutor
+
+        store = Store(str(tmp_path / "recall.db"))
+        store.upsert_chunks([_chunk()], _embeddings(1))
+
+        class _Probe:
+            def __init__(self, conn):
+                self._conn = conn
+                self._guard = threading.Lock()
+                self.inside = 0
+                self.max_inside = 0
+
+            def execute(self, *args, **kwargs):
+                with self._guard:
+                    self.inside += 1
+                    self.max_inside = max(self.max_inside, self.inside)
+                time.sleep(0.02)
+                try:
+                    return self._conn.execute(*args, **kwargs)
+                finally:
+                    with self._guard:
+                        self.inside -= 1
+
+            def __getattr__(self, name):
+                return getattr(self._conn, name)
+
+        probe = _Probe(store._conn)
+        store._conn = probe
+        try:
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                futures = [pool.submit(store.get_chunk, "a.jsonl#0") for _ in range(8)]
+                for f in futures:
+                    f.result()
+        finally:
+            store._conn = probe._conn
+            store.close()
+
+        assert probe.max_inside == 1
