@@ -80,3 +80,27 @@ def _bool_env(name: str, default: bool) -> bool:
 # 「使う意図があるか」のみを表す。上流 agent-shelf/shelf/config.py の HYBRID_SEARCH
 # と同じ設計）。
 HYBRID_SEARCH = _bool_env("RECALL_HYBRID_SEARCH", True)
+
+
+def _int_env(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+def _parse_allowed_hosts(raw: str) -> list[str]:
+    """カンマ区切りの許可ホスト一覧を list[str] へ。空要素は捨てる。"""
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+# `recall serve --http`（streamable-http）の起動設定。常駐マシンで recall を HTTP 公開し、
+# VPN 越しに複数端末から同じ記憶庫を引くための経路（優先順位はフラグ > env > 既定。
+# 解決は cli.resolve_serve_settings）。既定は loopback のみ・無効で、明示した時だけ公開する。
+HTTP_ENABLED = _bool_env("RECALL_HTTP_ENABLED", False)
+HTTP_HOST = os.environ.get("RECALL_HTTP_HOST", "127.0.0.1")
+HTTP_PORT = _int_env("RECALL_HTTP_PORT", 8768)
+ALLOWED_HOSTS = _parse_allowed_hosts(os.environ.get("RECALL_ALLOWED_HOSTS", ""))

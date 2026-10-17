@@ -73,6 +73,23 @@ class TestMemoryGet:
         assert result.structured_content["result"] is None
 
 
+class TestInstructions:
+    """同名の memory_search / memory_get を持つ別 MCP と取り違えないよう、使い分けを
+    サーバーの instructions で短く伝える（全セッションに毎回載るため上限あり）。"""
+
+    def test_instructions_are_set_and_short(self):
+        server = create_server(_service_with_one_chunk())
+
+        assert server.instructions
+        assert len(server.instructions) <= 1500
+
+    @pytest.mark.parametrize("phrase", ["過去セッション", "同名", "別物", "memory_get"])
+    def test_instructions_cover_required_points(self, phrase):
+        server = create_server(_service_with_one_chunk())
+
+        assert phrase in server.instructions
+
+
 @pytest.mark.parametrize("tool_name", ["memory_search", "memory_get"])
 def test_only_the_two_expected_tools_are_registered(tool_name):
     service = _service_with_one_chunk()
