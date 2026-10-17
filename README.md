@@ -33,8 +33,10 @@ recall/
   ├── skills/
   │   ├── distill/
   │   │   └── SKILL.md      # 蒸留手順（半手動）
-  │   └── retrospect/
-  │       └── SKILL.md      # 振り返り・教訓昇格の手続き（8ステップ）
+  │   ├── retrospect/
+  │   │   └── SKILL.md      # 振り返り・教訓昇格の手続き（Step 0〜8、references/ に詳細）
+  │   └── proposal-triage/
+  │       └── SKILL.md      # retrospect の停止中の提案を 1 件ずつ採否判断（手動 /proposal-triage）
   ├── agents/
   │   └── retrospective-analyst.md  # パターン分析エージェント
   ├── schedulers/launchd/
@@ -124,6 +126,7 @@ Claude Code の settings.json に以下を追加（またはプラグイン UI �
 ```bash
 # skills（ディレクトリ + SKILL.md 形式のため、ディレクトリごとリンクする）
 ln -s <recall-clone-dir>/skills/retrospect ~/.claude/skills/retrospect
+ln -s <recall-clone-dir>/skills/proposal-triage ~/.claude/skills/proposal-triage
 
 # agents
 ln -s <recall-clone-dir>/agents/retrospective-analyst.md ~/.claude/agents/
@@ -196,6 +199,32 @@ skills/distill/SKILL.md を参照して実行
 
 ```bash
 /retrospect  # メインセッションから起動
+```
+
+### HTTP で公開する
+
+既定の MCP 登録（`bin/recall-serve.sh`）は stdio のままで変わりません。常駐マシンで 1 つの記憶庫を持ち、VPN 越しに複数端末から引きたい場合だけ、streamable-http で起動します。
+
+```bash
+uv run --directory <recall-clone-dir> recall serve --http --host 127.0.0.1 --port 8768
+```
+
+| フラグ | env | 既定 | 説明 |
+|---|---|---|---|
+| `--http` | `RECALL_HTTP_ENABLED` | 無効（stdio） | streamable-http で起動する |
+| `--host` | `RECALL_HTTP_HOST` | `127.0.0.1` | bind ホスト |
+| `--port` | `RECALL_HTTP_PORT` | `8768` | bind ポート |
+| `--allowed-host` | `RECALL_ALLOWED_HOSTS`（カンマ区切り） | なし | DNS リバインディング保護の許可 Host を追加（`host:port`。繰り返し可） |
+| `--stdio` | なし | なし | env で HTTP が有効でも stdio を強制する |
+
+- 優先順位は `--stdio` > フラグ > env > 既定です。
+- この HTTP サーバには**認証がありません**。`127.0.0.1` か VPN 内の IP にだけ bind してください。`0.0.0.0` / `::` を指定すると stderr に警告を出します。
+- bind 先自身（`host:port` と `host`）は自動で許可 Host になります。別名（MagicDNS 名など）でアクセスするなら `--allowed-host host-a.example.ts.net:8768` のように足します。許可外の Host は拒否されます。
+- `GET /health` は死活監視用の無認証エンドポイントで、`{"status": "ok", "version": "<agent-recall の版>"}` だけを返します。
+
+```bash
+curl http://127.0.0.1:8768/health
+# {"status":"ok","version":"0.4.1"}
 ```
 
 ## [agent-shelf](https://github.com/examinare000/agent-shelf) との関係

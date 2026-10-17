@@ -7,8 +7,10 @@
 
 from __future__ import annotations
 
+import functools
 import logging
 import sqlite3
+import threading
 from pathlib import Path
 
 import numpy as np
@@ -16,6 +18,25 @@ import numpy as np
 from recall.chunker import Chunk
 
 _logger = logging.getLogger(__name__)
+
+
+def _locked(method):
+    """公開メソッドを Store._lock（RLock）で直列化するデコレータ。
+
+    mcp の sync def ツールはワーカースレッドで並行実行され得るため、単一の
+    sqlite3 接続（check_same_thread=False）へ複数スレッドが同時に到達する。
+    メソッド単位で包むのは、mutator が複数文 + commit の多段書き込みを持ち、
+    より細かい粒度では書きかけの状態に別スレッドが割り込むため。RLock なのは
+    prune_missing→list_source_files 等、公開メソッドから公開メソッドへの再入があるため。
+    """
+
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with self._lock:
+            return method(self, *args, **kwargs)
+
+    return wrapper
+
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS chunks (
@@ -56,11 +77,11 @@ class Store:
         # DB_PATH の親ディレクトリを必要時に作成する（":memory:" はファイルではないのでスキップ）。
         if str(db_path) != ":memory:":
             Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-        # mcp 2.0.0 の MCPServer はツール呼び出しを Store 生成スレッドとは別の
-        # ワーカースレッドから同期実行するため、デフォルトの同一スレッド制約では
-        # "SQLite objects created in a thread can only be used in that same
-        # thread" で落ちる。呼び出しは逐次（非並行）なので check_same_thread=False
-        # による安全性の低下はない。
+        # mcp の MCPServer はツール呼び出しを Store 生成スレッドとは別のワーカー
+        # スレッドから実行し、並行にも呼び得る。そのため単一接続を
+        # check_same_thread=False で共有し、公開メソッド全体を _lock（RLock）で
+        # 包んで直列化する（_locked 参照）。接続の共有だけではスレッド安全にならない。
+        self._lock = threading.RLock()
         self._conn = sqlite3.connect(str(db_path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         # 同時アクセスによる一時的なロック競合の頻度を下げる（上の _BUSY_TIMEOUT_MS
@@ -72,6 +93,7 @@ class Store:
         self.fts_enabled = False
         self._init_fts()
 
+    @_locked
     def close(self) -> None:
         self._conn.close()
 
@@ -248,6 +270,7 @@ class Store:
         except sqlite3.Error as exc:
             self._fts_disable_after_failure("挿入同期", exc)
 
+    @_locked
     def upsert_chunks(self, chunks: list[Chunk], embeddings: np.ndarray) -> None:
         """chunks[i] と embeddings[i] を対応付けて insert or replace する。"""
         ids = [chunk.id for chunk in chunks]
@@ -289,6 +312,7 @@ class Store:
         self._fts_insert_rows(ids)
         self._conn.commit()
 
+    @_locked
     def delete_by_source_file(self, source_file: str) -> None:
         # FTS 削除時は旧テキストの取得が必須なため、delete より前に capture する。
         fts_rows = self._fts_capture_rows("source_file = ?", (source_file,))
@@ -296,6 +320,7 @@ class Store:
         self._fts_delete_rows(fts_rows)
         self._conn.commit()
 
+    @_locked
     def get_chunk(self, chunk_id: str) -> dict | None:
         row = self._conn.execute(
             "SELECT id, source_file, project, branch, timestamp, text FROM chunks WHERE id = ?",
@@ -305,6 +330,7 @@ class Store:
             return None
         return dict(row)
 
+    @_locked
     def load_all_vectors(self, project: str | None = None) -> tuple[list[str], np.ndarray]:
         """cosine 検索用に全ベクトルを1つの行列としてロードする。
 
@@ -329,6 +355,7 @@ class Store:
             matrix[i] = np.frombuffer(row["embedding"], dtype=np.float32)
         return ids, matrix
 
+    @_locked
     def get_file_state(self, source_file: str) -> dict | None:
         row = self._conn.execute(
             "SELECT mtime, size, model FROM file_state WHERE source_file = ?",
@@ -338,6 +365,7 @@ class Store:
             return None
         return dict(row)
 
+    @_locked
     def set_file_state(self, source_file: str, mtime: float, size: int, model: str) -> None:
         self._conn.execute(
             """
@@ -349,10 +377,12 @@ class Store:
         )
         self._conn.commit()
 
+    @_locked
     def list_source_files(self) -> list[str]:
         rows = self._conn.execute("SELECT source_file FROM file_state").fetchall()
         return [row["source_file"] for row in rows]
 
+    @_locked
     def prune_missing(self, existing_source_files: set[str]) -> int:
         """corpus 上に存在しなくなったファイルの chunks/file_state を削除する。削除件数を返す。"""
         tracked = self.list_source_files()
@@ -365,6 +395,7 @@ class Store:
         self._conn.commit()
         return len(stale)
 
+    @_locked
     def clear_all(self) -> None:
         """全 chunks/file_state を削除する（--all 全再構築・モデル変更時の強制再構築用）。"""
         if self.fts_enabled:
@@ -380,6 +411,7 @@ class Store:
         self._conn.execute("DELETE FROM file_state")
         self._conn.commit()
 
+    @_locked
     def keyword_topk(
         self, fts_query: str, limit: int, project: str | None = None
     ) -> list[tuple[str, float]]:
@@ -424,10 +456,12 @@ class Store:
             return []
         return [(row["id"], row["score"]) for row in rows]
 
+    @_locked
     def get_meta(self, key: str) -> str | None:
         row = self._conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
         return None if row is None else row["value"]
 
+    @_locked
     def set_meta(self, key: str, value: str) -> None:
         self._conn.execute(
             "INSERT INTO meta (key, value) VALUES (?, ?) "

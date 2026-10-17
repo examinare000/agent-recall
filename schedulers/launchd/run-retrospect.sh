@@ -33,6 +33,22 @@
 # ASCIIにし、日本語は本文（HTTPボディ）側に寄せる。
 set -u
 
+# launchd 無人実行の環境固定:
+# - launchd はログインシェルの PATH を引き継がないため、claude / uv / git の置き場所
+#   （~/.local/bin、Homebrew）を明示する。~/.local/bin を /opt/homebrew/bin より前に
+#   置くのは、brew の python3 が uv の既定 python3 を隠さないようにするため。
+# - RUN_RETROSPECT_PATH_OVERRIDE はテスト専用の差し替えフック（他の *_OVERRIDE と同じ
+#   位置づけ。未設定時は本番と同じ固定 PATH）。これが無いと、この export が呼び出し側の
+#   PATH を捨てるため stub の claude に到達できず、テストが実 claude を acceptEdits で
+#   起動してしまう。
+export PATH="${RUN_RETROSPECT_PATH_OVERRIDE:-$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin}"
+
+# 実行中のアイドルスリープ抑止（macOS のみ。caffeinate が無い環境では何もしない）。
+# -w $$ でこのスクリプトの終了と同時に解除される。蓋閉じによる強制スリープまでは防げない。
+if command -v caffeinate >/dev/null 2>&1; then
+  caffeinate -im -w $$ &
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 # RUN_RETROSPECT_REPO_OVERRIDE はテスト専用の差し替えフック
 # （bootstrap.shの*_NO_MAINガードと同じ位置づけ。未設定時は本番と同じ挙動）。
@@ -52,16 +68,59 @@ LESSONS_DIR="${LESSONS_DIR:-$HOME/.claude/lessons}"
 ALLOWED_TOOLS="Bash(git push:*),Bash(gh pr create:*),Bash(gh pr list:*),Bash(gh pr view:*),Bash(uv run --directory ${RECALL_REPO}:*),Bash(find ${CORPUS_DIR}:*),Bash(mv ${LESSONS_DIR}:*)"
 DISALLOWED_TOOLS="WebFetch,WebSearch,mcp__gemini__ask-gemini,mcp__gemini__brainstorm,mcp__gemini__fetch-chunk,mcp__gemini__ping,mcp__gemini__Help,mcp__vault__vault_search,mcp__vault__vault_get,mcp__shelf__consult,mcp__shelf__ask,mcp__shelf__list_notebooks"
 
+# 上で遮断した MCP サーバーは、プラグイン経由で入ると名前が
+# mcp__plugin_<plugin>_<server>__<tool> に変わり、上の名前では剥奪できない。
+# 同じ遮断対象をプラグイン名（plugin 名 = server 名の一般的な配布形）でも剥奪する。
+# recall 自身（mcp__plugin_recall_recall__*）は Step 2 の memory_search に必要なので、
+# 元の遮断対象に含まれない限りここでも遮断されない。
+# 外部コマンド(tr/sed/paste)に依存せず bash の parameter expansion だけで組む
+# （PATH を固定/隔離した状態でも動かすため）。
+PLUGIN_DISALLOWED_TOOLS=""
+_rest="$DISALLOWED_TOOLS"
+while [ -n "$_rest" ]; do
+  _name="${_rest%%,*}"
+  if [ "$_rest" = "$_name" ]; then _rest=""; else _rest="${_rest#*,}"; fi
+  case "$_name" in
+    mcp__*__*)
+      _server="${_name#mcp__}"; _server="${_server%%__*}"
+      _tool="${_name#mcp__"${_server}"__}"
+      PLUGIN_DISALLOWED_TOOLS="${PLUGIN_DISALLOWED_TOOLS:+$PLUGIN_DISALLOWED_TOOLS,}mcp__plugin_${_server}_${_server}__${_tool}"
+      ;;
+  esac
+done
+DISALLOWED_TOOLS="$DISALLOWED_TOOLS,$PLUGIN_DISALLOWED_TOOLS"
+
 if ! cd "$REPO" 2>/dev/null; then
   # notify.sh を別途配置している場合は以下でコメントアウトを外してください
   # $(dirname "$0")/notify.sh "retrospect FAILED" "cd to repo failed: $REPO" high warning || true
   exit 1
 fi
 
+# claude 解決のフォールバック: claude CLI の自動更新中は ~/.local/bin/claude の
+# symlink が一時的に懸垂となり PATH 解決に失敗する（週次実行が
+# `claude: command not found` で不成立になる）。symlink が懸垂でも versions/ 直下には
+# 実体が残るため、PATH で解決できないときは mtime 最新の実体へフォールバックする。
+# それも無い場合は claude を起動せず exit 127（fail-close）。
+# RUN_RETROSPECT_VERSIONS_DIR_OVERRIDE はテスト専用の差し替えフック。
+CLAUDE_BIN="$(command -v claude || true)"
+if [ -z "$CLAUDE_BIN" ]; then
+  VERSIONS_DIR="${RUN_RETROSPECT_VERSIONS_DIR_OVERRIDE:-$HOME/.local/share/claude/versions}"
+  # shellcheck disable=SC2012  # mtime 順の先頭 1 件が欲しいだけで、ファイル名は版番号
+  latest="$(ls -t "$VERSIONS_DIR" 2>/dev/null | head -n1)"
+  if [ -n "$latest" ] && [ -x "$VERSIONS_DIR/$latest" ]; then
+    CLAUDE_BIN="$VERSIONS_DIR/$latest"
+  fi
+fi
+if [ -z "$CLAUDE_BIN" ]; then
+  echo "claude not found in PATH and no fallback in versions dir" >&2
+  exit 127
+fi
+
 start_ts="$(date +%s)"
-claude --model claude-opus-4-8 --permission-mode acceptEdits --allowedTools "$ALLOWED_TOOLS" --disallowedTools "$DISALLOWED_TOOLS" -p "/retrospect"
+"$CLAUDE_BIN" --model opus --permission-mode acceptEdits --allowedTools "$ALLOWED_TOOLS" --disallowedTools "$DISALLOWED_TOOLS" -p "/retrospect"
 rc=$?
 end_ts="$(date +%s)"
+# shellcheck disable=SC2034  # notify 呼び出しがコメントアウトされているため未使用に見える
 elapsed_min=$(( (end_ts - start_ts) / 60 ))
 
 # notify.sh を別途配置している場合は以下でコメントアウトを外してください

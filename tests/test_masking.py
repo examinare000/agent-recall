@@ -30,6 +30,20 @@ def test_mask_redacts_openai_style_key():
     assert masking.mask("key=sk-abcdefghijklmnop") == "key=<REDACTED-KEY>"
 
 
+def test_mask_redacts_anthropic_style_key_containing_hyphens():
+    # sk-ant-api03-... はハイフンを含むため、英数字のみの文字クラスでは 12 文字連続を満たせず漏れる
+    # 「KEY=」形式は別規則が先に捕捉するため、sk- 規則単独で効くよう文中に置く
+    text = "貼られたキーは sk-ant-api03-AbCdEf_GhIjKlMnOp です"
+    masked = masking.mask(text)
+    assert masked == "貼られたキーは <REDACTED-KEY> です"
+    assert "api03" not in masked
+
+
+def test_mask_keeps_short_sk_prefixed_word():
+    # 負例: 12 文字未満の sk- 語（ハイフン区切りの通常語）は鍵と見なさず過剰マスクしない
+    assert masking.mask("use sk-short here") == "use sk-short here"
+
+
 def test_mask_redacts_github_token():
     text = "token ghp_abcdefghijklmnopqrst1234"
     assert "<REDACTED-TOKEN>" in masking.mask(text)
@@ -233,3 +247,9 @@ class TestIdempotency:
         once = masking.mask(text)
         twice = masking.mask(once)
         assert twice == once
+
+
+def test_mask_keeps_sk_inside_compound_words():
+    # 負例: `task-` `risk-` のような複合語の途中の `sk-` は鍵ではない（語頭の `sk-` のみ対象）
+    text = "<task-notification> and risk-assessment-framework"
+    assert masking.mask(text) == text
