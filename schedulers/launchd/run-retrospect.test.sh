@@ -61,7 +61,7 @@ assert_contains() {
 setup_case() {
   local case_dir="$1" with_claude="$2" cmd real
   mkdir -p "$case_dir/repo" "$case_dir/bin" "$case_dir/bare" "$case_dir/versions"
-  for cmd in dirname date ls head; do
+  for cmd in dirname date ls head mktemp rm python3; do
     real="$(command -v "$cmd")"
     ln -s "$real" "$case_dir/bare/$cmd"
   done
@@ -80,18 +80,20 @@ write_claude_stub() {
   cat > "$1" <<STUBEOF
 #!/bin/sh
 for a in "\$@"; do printf '%s\n' "\$a"; done > "$2"
+# --output-format json の結果を模す。CLAUDE_STUB_JSON が設定されていればその値を、無ければ拒否なしの既定 JSON を出す。
+if [ -n "\${CLAUDE_STUB_JSON+x}" ]; then printf '%s\n' "\$CLAUDE_STUB_JSON"; else printf '%s\n' '{"result":"stub ok","permission_denials":[]}'; fi
 exit "\${CLAUDE_STUB_RC:-0}"
 STUBEOF
   chmod +x "$1"
 }
 
-# $1: case_dir, $2: PATH override に使う値
+# $1: case_dir, $2: PATH override に使う値。stderr は $case_dir/stderr.txt に残す。
 run_case() {
   local case_dir="$1" path_value="$2"
   RUN_RETROSPECT_PATH_OVERRIDE="$path_value" \
     RUN_RETROSPECT_REPO_OVERRIDE="$case_dir/repo" \
     RUN_RETROSPECT_VERSIONS_DIR_OVERRIDE="$case_dir/versions" \
-    "$BASH_BIN" "$TARGET_SH" >/dev/null 2>&1
+    "$BASH_BIN" "$TARGET_SH" >"$case_dir/stdout.txt" 2>"$case_dir/stderr.txt"
 }
 
 # (a) PATH override が効き、PATH 上の stub claude が起動される
@@ -158,6 +160,38 @@ else
   echo "PASS: (e) recall 自身(mcp__plugin_recall_*)は遮断しない"
   pass=$((pass + 1))
 fi
+
+# (f) 権限拒否は rc=0 でも失敗にする（拒否は迂回で吸収され成功に見えるため）
+case_dir="$WORKDIR/f"
+setup_case "$case_dir" yes
+rc=0
+CLAUDE_STUB_JSON='{"result":"done","permission_denials":[{"tool_name":"mcp__recall__memory_search","tool_input":{}}]}' \
+  run_case "$case_dir" "$case_dir/bin:$case_dir/bare" || rc=$?
+assert_rc "(f) permission_denials があれば exit 1" 1 "$rc"
+assert_contains "(f) 拒否されたツール名を stderr に出す" "$(cat "$case_dir/stderr.txt")" "mcp__recall__memory_search"
+
+# (f2) 結果 JSON を読めない場合も「拒否なし」とは言えないので失敗にする
+case_dir="$WORKDIR/f2"
+setup_case "$case_dir" yes
+rc=0
+CLAUDE_STUB_JSON='not json' run_case "$case_dir" "$case_dir/bin:$case_dir/bare" || rc=$?
+assert_rc "(f2) 結果 JSON が壊れていれば exit 1" 1 "$rc"
+
+# (f3) 拒否なしなら応答本文をログへ戻し、JSON の生出力は流さない
+case_dir="$WORKDIR/f3"
+setup_case "$case_dir" yes
+run_case "$case_dir" "$case_dir/bin:$case_dir/bare" || true
+assert_contains "(f3) result 本文を stdout に出す" "$(cat "$case_dir/stdout.txt")" "stub ok"
+args="$(cat "$case_dir/args.txt" 2>/dev/null || true)"
+assert_contains "(f3) --output-format json で起動する" "$args" "json"
+
+# (g) recall の memory_search は allowedTools に載せる（disallow に含めないだけでは headless で拒否される）
+case_dir="$WORKDIR/g"
+setup_case "$case_dir" yes
+run_case "$case_dir" "$case_dir/bin:$case_dir/bare" || true
+allowed="$(grep -A1 -x -- '--allowedTools' "$case_dir/args.txt" | tail -n1)"
+assert_contains "(g) user-scope 名の memory_search を許可する" "$allowed" "mcp__recall__memory_search"
+assert_contains "(g) プラグイン導入名の memory_search を許可する" "$allowed" "mcp__plugin_agent-recall_recall__memory_search"
 
 echo "----"
 echo "pass=$pass fail=$fail"
