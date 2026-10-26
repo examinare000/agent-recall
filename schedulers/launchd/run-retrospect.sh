@@ -2,9 +2,11 @@
 # retrospect 実行ラッパー（launchd から起動）。
 #
 # WHY: 週次retrospectはremote controlに紐づかない `claude -p` 無人実行のため、
-# 失敗・完了をplistのコマンド行に埋め込んだままだと検知できない。ntfy通知呼出を
-# ラッパースクリプトへ分離することで、plistのProgramArgumentsを直接テストできない
-# 制約を回避しつつ、成功/失敗の両経路をシェルテストで検証可能にする。
+# 失敗・完了をplistのコマンド行に埋め込んだままだと検知できない。ラッパースクリプト
+# へ分離することで、plistのProgramArgumentsを直接テストできない制約を回避しつつ、
+# 成功/失敗の両経路をシェルテストで検証可能にする。失敗は終了コードと stderr で
+# 可視化する（通知が必要なら launchd の StandardErrorPath を監視するか、末尾の rc を
+# 見て任意の通知コマンドを呼ぶ）。
 #
 # allowedTools の内容は元のplist（com.example.recall.retrospect.plist）からそのまま
 # 移設したもの。追加・削除する場合は ~/.claude/rules/94-self-improvement-protocol.md の
@@ -18,19 +20,23 @@
 # 移行済み（agentDevTemplate feature/p3-quarantine-adt）のため、Bash grep 許可は
 # 不要になり削除する。あわせて --disallowedTools で、無人ジョブへの未信頼コンテンツ
 # 流入経路になり得るWeb系（WebFetch/WebSearch）と、Step本文で不要な私有MCP
-# （gemini/vault/shelf）への到達を明示的に剥奪する。recall（mcp__recall__*）は
-# Step 2のmemory_searchに必要なため disallow に含めない。
+# （gemini/vault/shelf）への到達を明示的に剥奪する。
+#
+# MCP の allow: 「disallow に含めない」は「使える」ではない。headless の acceptEdits では
+# MCP ツールは自動承認されず、allowedTools に無ければ拒否される（実測: permission_denials
+# に載る）。Step 2 の類似照合に必要な recall の memory_search / memory_get を、user-scope
+# 登録名とプラグイン導入名の両方で allowedTools に載せる。
+#
+# 権限拒否の fail-close: 権限拒否は迂回で吸収され rc=0 で完走する（実測: recall の照合が
+# 毎サイクル拒否されたまま成功扱いだった）。--output-format json の permission_denials を
+# 親が読み、拒否があれば exit 1 にする。
 #
 # cd fail-close（2026-07-15 レビュー反映）:
 # 旧plist（cd "$REPO" && claude ...）はcd失敗時にclaudeを起動しないfail-fastだった。
 # ラッパー化した際に `cd "$REPO" 2>/dev/null || true` としてしまうと、cd失敗時も
 # 無条件でclaudeがacceptEditsのまま意図しないCWDから走ってしまう（fail-open）。
 # 兄弟の distill/weekly-distill.sh も `cd || { log; exit }` でfail-closeにして
-# いるため、それと揃え、cd失敗時はclaudeを起動せずnotify.shで失敗通知しexit 1する。
-#
-# 通知タイトルはASCII固定（2026-07-15 レビュー反映）: HTTPヘッダ（Title:）に
-# 非ASCII文字を載せるとntfy側での文字化け・拒否リスクが未検証のため、タイトルは
-# ASCIIにし、日本語は本文（HTTPボディ）側に寄せる。
+# いるため、それと揃え、cd失敗時はclaudeを起動せずstderrに失敗を記録してexit 1する。
 set -u
 
 # launchd 無人実行の環境固定:
@@ -65,7 +71,7 @@ LESSONS_DIR="${LESSONS_DIR:-$HOME/.claude/lessons}"
 # 各エントリは1回のみ列挙する。旧repoでは「~ 表記」と「絶対パス表記」の両方を
 # 許可リストに並べる設計だったため重複エントリが必要だったが、上記の変数化で
 # 実行時に解決済みの1パスのみが埋め込まれるようになり、その設計は不要になった。
-ALLOWED_TOOLS="Bash(git push:*),Bash(gh pr create:*),Bash(gh pr list:*),Bash(gh pr view:*),Bash(uv run --directory ${RECALL_REPO}:*),Bash(find ${CORPUS_DIR}:*),Bash(mv ${LESSONS_DIR}:*)"
+ALLOWED_TOOLS="mcp__recall__memory_search,mcp__recall__memory_get,mcp__plugin_agent-recall_recall__memory_search,mcp__plugin_agent-recall_recall__memory_get,Bash(git push:*),Bash(gh pr create:*),Bash(gh pr list:*),Bash(gh pr view:*),Bash(uv run --directory ${RECALL_REPO}:*),Bash(find ${CORPUS_DIR}:*),Bash(mv ${LESSONS_DIR}:*)"
 DISALLOWED_TOOLS="WebFetch,WebSearch,mcp__gemini__ask-gemini,mcp__gemini__brainstorm,mcp__gemini__fetch-chunk,mcp__gemini__ping,mcp__gemini__Help,mcp__vault__vault_search,mcp__vault__vault_get,mcp__shelf__consult,mcp__shelf__ask,mcp__shelf__list_notebooks"
 
 # 上で遮断した MCP サーバーは、プラグイン経由で入ると名前が
@@ -116,18 +122,66 @@ if [ -z "$CLAUDE_BIN" ]; then
   exit 127
 fi
 
+# 結果 JSON の置き場。stdout に JSON の生出力を流さず、応答本文だけをログへ戻す。
+RESULT_JSON="$(mktemp "${TMPDIR:-/tmp}/run-retrospect.XXXXXX")" || exit 1
+trap 'rm -f "$RESULT_JSON"' EXIT
+
 start_ts="$(date +%s)"
-"$CLAUDE_BIN" --model opus --permission-mode acceptEdits --allowedTools "$ALLOWED_TOOLS" --disallowedTools "$DISALLOWED_TOOLS" -p "/retrospect"
+"$CLAUDE_BIN" --model opus --permission-mode acceptEdits --allowedTools "$ALLOWED_TOOLS" --disallowedTools "$DISALLOWED_TOOLS" --output-format json -p "/retrospect" >"$RESULT_JSON"
 rc=$?
 end_ts="$(date +%s)"
-# shellcheck disable=SC2034  # notify 呼び出しがコメントアウトされているため未使用に見える
 elapsed_min=$(( (end_ts - start_ts) / 60 ))
 
-# notify.sh を別途配置している場合は以下でコメントアウトを外してください
-# if [ "$rc" -eq 0 ]; then
-#   $(dirname "$0")/notify.sh "retrospect done" "rc=0 ${elapsed_min}m" default white_check_mark || true
-# else
-#   $(dirname "$0")/notify.sh "retrospect FAILED" "rc=$rc ${elapsed_min}m" high warning || true
-# fi
+if [ "$rc" -ne 0 ]; then
+  echo "FAIL: retrospect rc=$rc ${elapsed_min}m" >&2
+  exit "$rc"
+fi
 
-exit "$rc"
+# 従来 stdout に流れていた応答本文は result フィールドから復元してログへ残す。読めなければ何も出さない。
+python3 - "$RESULT_JSON" <<'PY' 2>/dev/null || true
+import json
+import sys
+
+try:
+    with open(sys.argv[1], encoding="utf-8") as f:
+        result = json.load(f)
+except (OSError, ValueError):
+    raise SystemExit(0)
+if isinstance(result, dict) and isinstance(result.get("result"), str):
+    print(result["result"])
+PY
+
+# 権限拒否の fail-close: permission_denials に 1 件でもあれば失敗にする。
+# JSON を読めない場合も「拒否なし」とは言えないので失敗にする（exit 3 で区別して報告）。
+denied_rc=0
+denied_tools="$(python3 - "$RESULT_JSON" <<'PY'
+import json
+import sys
+
+try:
+    with open(sys.argv[1], encoding="utf-8") as f:
+        result = json.load(f)
+except (OSError, ValueError):
+    raise SystemExit(3)
+if not isinstance(result, dict):
+    raise SystemExit(3)
+denials = result.get("permission_denials")
+if denials is None:
+    denials = []
+if not isinstance(denials, list):
+    raise SystemExit(3)
+names = sorted({str(d.get("tool_name", "?")) for d in denials if isinstance(d, dict)})
+print(",".join(names))
+PY
+)" || denied_rc=$?
+if [ "$denied_rc" -ne 0 ]; then
+  echo "FAIL: retrospect result JSON is not parseable (rc=$denied_rc)" >&2
+  exit 1
+fi
+if [ -n "$denied_tools" ]; then
+  echo "FAIL: retrospect permission denied tools=$denied_tools" >&2
+  exit 1
+fi
+
+echo "retrospect done rc=0 ${elapsed_min}m"
+exit 0
