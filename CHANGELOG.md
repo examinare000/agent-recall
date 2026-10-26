@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **proposal-triage skill**: 問いを「採否項目 1 つずつ」にし、経緯・変更点・期待効果を各 1〜2 行で平易に書く形へ改める。提案単位・3 行圧縮の指示どおりに問うと、詰め込みと前提不足で差し戻された実例があるため
+- **run-retrospect.sh**: recall の `memory_search` / `memory_get` を user-scope 登録名とプラグイン導入名の両方で `--allowedTools` に載せる。headless の acceptEdits では MCP ツールは自動承認されず、disallow に含めないだけでは拒否されていた
+
+### Fixed
+- **run-retrospect.sh の権限拒否 fail-close**: `--output-format json` で起動し、結果 JSON の `permission_denials` に 1 件でもあれば exit 1 にする（JSON を読めない場合も失敗）。権限拒否は迂回で吸収され rc=0 で完走するため、照合が縮退したまま成功扱いになっていた。応答本文は `result` から復元してログへ残す
+
 ## [0.5.0] - 2026-10-17
 
 実運用で実証済みの改善の移植を含む。
