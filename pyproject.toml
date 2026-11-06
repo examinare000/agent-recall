@@ -17,7 +17,7 @@ recall = "recall.cli:main"
 # 既定で同期する（[project.optional-dependencies] の extra と違い --extra 指定不要）。
 # README/完了条件が `uv run pytest`（プレーン実行）を前提にしているため、この形式にする。
 dev = [
-    "pytest>=8.0",
+    "pytest>=9.2.0",
     "ruff>=0.17.3",
 ]
 
