@@ -49,6 +49,8 @@ recall/
 
 ## セットアップ
 
+前提: Python 3.14 以上と uv が必要です。`uv sync` は `.python-version` に従って Python 3.14 を使用します。
+
 ### インストール（プラグイン、推奨）
 
 1. マーケットプレイス登録（GitHub から直指定、または ローカル clone パス）:
@@ -224,7 +226,7 @@ uv run --directory <recall-clone-dir> recall serve --http --host 127.0.0.1 --por
 
 ```bash
 curl http://127.0.0.1:8768/health
-# {"status":"ok","version":"0.5.0"}
+# {"status":"ok","version":"0.6.0"}
 ```
 
 ## [agent-shelf](https://github.com/examinare000/agent-shelf) との関係

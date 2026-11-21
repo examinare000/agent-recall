@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-21
+
 ### Changed
+- **Python 3.14 への移行**: Python 下限を 3.14 に引き上げ、`.python-version` と Ruff の対象を 3.14 に統一。依存ロックを Python 3.14 向けに更新し、CI は `uv sync --locked` で固定した依存を使用する
 - **proposal-triage skill**: 問いを「採否項目 1 つずつ」にし、経緯・変更点・期待効果を各 1〜2 行で平易に書く形へ改める。提案単位・3 行圧縮の指示どおりに問うと、詰め込みと前提不足で差し戻された実例があるため
 - **run-retrospect.sh**: recall の `memory_search` / `memory_get` を user-scope 登録名とプラグイン導入名の両方で `--allowedTools` に載せる。headless の acceptEdits では MCP ツールは自動承認されず、disallow に含めないだけでは拒否されていた
 
@@ -164,5 +167,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - agent-forge・agent-shelf との統合ガイド
 - launchd 設定例（テンプレート）
 
-[Unreleased]: https://github.com/examinare000/agent-recall/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/examinare000/agent-recall/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/examinare000/agent-recall/compare/v0.5.0...v0.6.0
 [0.1.0]: https://github.com/examinare000/agent-recall/releases/tag/v0.1.0

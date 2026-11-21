@@ -1,8 +1,8 @@
 [project]
 name = "agent-recall"
-version = "0.5.0"
+version = "0.6.0"
 description = "corpus/claude-code/ を意味検索するための MCP サーバ（MVP）"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 dependencies = [
     "mcp>=2.3.0",
     "fastembed>=0.9.1",
@@ -30,7 +30,7 @@ packages = ["recall"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py314"
 
 # エディタ(Pyright)が recall/.venv を解決できるようにする（実行系は uv が解決）
 [tool.pyright]
