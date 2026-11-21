@@ -22,13 +22,13 @@ dev = [
 requires-dist = [
     { name = "fastembed", specifier = ">=0.9.1" },
     { name = "mcp", specifier = ">=2.3.0" },
-    { name = "numpy", specifier = ">=1.26" },
+    { name = "numpy", specifier = ">=2.5.5" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "pytest", specifier = ">=9.2.0" },
-    { name = "ruff", specifier = ">=0.17.5" },
+    { name = "ruff", specifier = ">=0.17.6" },
 ]
 
 [[package]]

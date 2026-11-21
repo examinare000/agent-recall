@@ -6,7 +6,7 @@ requires-python = ">=3.14"
 dependencies = [
     "mcp>=2.3.0",
     "fastembed>=0.9.1",
-    "numpy>=1.26",
+    "numpy>=2.5.5",
 ]
 
 [project.scripts]
@@ -18,7 +18,7 @@ recall = "recall.cli:main"
 # README/完了条件が `uv run pytest`（プレーン実行）を前提にしているため、この形式にする。
 dev = [
     "pytest>=9.2.0",
-    "ruff>=0.17.5",
+    "ruff>=0.17.6",
 ]
 
 [build-system]
